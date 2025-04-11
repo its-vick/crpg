@@ -34,8 +34,13 @@ internal class RangedWeaponAmmoMissionView : MissionView
     public override void OnMissionScreenTick(float dt)
     {
         base.OnMissionScreenTick(dt);
-
-        if (Input.IsGameKeyPressed(HotKeyManager.GetCategory("CombatHotKeyCategory").GetGameKey("ToggleWeaponMode").Id)) // default is X
+        /*
+                if (Input.IsGameKeyPressed(HotKeyManager.GetCategory("CombatHotKeyCategory").GetGameKey("ToggleWeaponMode").Id)) // default is X
+                {
+                    _dataSource!.RequestChangeRangedAmmo();
+                }
+        */
+        if (Input.IsKeyPressed(TaleWorlds.InputSystem.InputKey.C)) // C for now
         {
             _dataSource!.RequestChangeRangedAmmo();
         }
