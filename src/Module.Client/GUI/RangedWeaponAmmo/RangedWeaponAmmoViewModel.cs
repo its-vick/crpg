@@ -1,33 +1,7 @@
-using System.Collections;
-using System.ComponentModel;
-using System.Data;
-using System.Diagnostics;
 using Crpg.Module.Common;
-using Crpg.Module.Common.Network;
-using Helpers;
-using NetworkMessages.FromServer;
-using TaleWorlds.CampaignSystem.CampaignBehaviors;
-using TaleWorlds.CampaignSystem.Settlements;
 using TaleWorlds.Core;
-using TaleWorlds.Engine;
-using TaleWorlds.GauntletUI;
-using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
-using TaleWorlds.LinQuick;
-using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.GauntletUI.Widgets;
-using TaleWorlds.MountAndBlade.GauntletUI.Widgets.Crafting;
-using TaleWorlds.MountAndBlade.Missions;
-using TaleWorlds.MountAndBlade.Multiplayer.ViewModelCollection;
-using TaleWorlds.MountAndBlade.Multiplayer.ViewModelCollection.Lobby.ClassFilter;
-using TaleWorlds.MountAndBlade.Network.Messages;
-using TaleWorlds.MountAndBlade.Source.Missions;
-using TaleWorlds.MountAndBlade.Source.Missions.Handlers.Logic;
-using TaleWorlds.MountAndBlade.ViewModelCollection.HUD;
-using TaleWorlds.MountAndBlade.ViewModelCollection.Input;
-using TaleWorlds.ObjectSystem;
-
 namespace Crpg.Module.GUI;
 
 internal class RangedWeaponAmmoViewModel : ViewModel
@@ -61,27 +35,6 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         base.RefreshValues();
     }
 
-    /*    public void Tick(float dt)
-        {
-            if ((_mission != null) && (_mission.MainAgent != null))
-            {
-                if (!_mission.MainAgent.IsActive())
-                {
-                    ShowQuiverAmmoCount = false;
-                    ShowQuiverName = false;
-                }
-                else
-                {
-                    UpdateWeaponStatuses();
-                }
-            }
-            else
-            {
-                ShowQuiverAmmoCount = false;
-                ShowQuiverName = false;
-            }
-        }
-    */
     public void Tick(float dt)
     {
         bool isPlayerActive = _mission?.MainAgent?.IsActive() == true;
