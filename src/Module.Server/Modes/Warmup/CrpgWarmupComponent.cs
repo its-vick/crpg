@@ -133,9 +133,9 @@ internal class CrpgWarmupComponent : MultiplayerWarmupComponent
     {
         if (IsInWarmup && !networkPeer.IsServerPeer)
         {
-            GameNetwork.BeginBroadcastModuleEvent();
+            GameNetwork.BeginModuleEventAsServer(networkPeer);
             GameNetwork.WriteMessage(new WarmupStateChange(WarmupStateReflection, _currentStateStartTime.NumberOfTicks));
-            GameNetwork.EndBroadcastModuleEvent(GameNetwork.EventBroadcastFlags.None);
+            GameNetwork.EndModuleEventAsServer();
         }
     }
 
@@ -190,7 +190,8 @@ internal class CrpgWarmupComponent : MultiplayerWarmupComponent
     private void RewardUsers()
     {
         _rewardTickTimer ??= new MissionTimer(duration: WarmupRewardTimer);
-        if (_rewardTickTimer.Check(reset: true))
+        // only set multi and reward players if not enough to start game
+        if (_rewardTickTimer.Check(reset: true) && MultiplayerOptions.OptionType.MinNumberOfPlayersForMatchStart.GetIntValue() - _players.Count() > 0)
         {
             OnWarmupRewardTick?.Invoke(_rewardTickTimer.GetTimerDuration());
         }
