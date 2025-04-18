@@ -1,14 +1,35 @@
 <Prefab>
   <Constants>
+    <Constant Name="Quiver.Active.Suggested.Width" Value="80"/>
+    <Constant Name="Quiver.Active.Suggested.Height" Value="40"/>
+    <Constant Name="Quiver.Margin.Bottom" Value="136"/>
+    <Constant Name="Quiver.Margin.Right" Value="138"/>
+    <Constant Name="Quiver0.PositionXOffset" Value="0"/>
+    <Constant Name="Quiver1.PositionXOffset" Value="-36"/>
+    <Constant Name="Quiver2.PositionXOffset" Value="-56"/>
+    <Constant Name="Quiver3.PositionXOffset" Value="-76"/>
+    <Constant Name="Quiver.NotActive.Suggested.Width" Value="66"/>
+    <Constant Name="Quiver.NotActive.Suggested.Height" Value="33"/>
+    
+    <Constant Name="Quiver.Name.TextWidget.Margin.Bottom" Value="110"/>
+    <Constant Name="Quiver.Name.TextWidget.Margin.Right" Value="108"/>
+    <Constant Name="Quiver.Name.TextWidget.Suggested.Width" Value="400"/>
+    <Constant Name="Quiver.Name.TextWidget.Suggested.Height" Value="80"/>
   </Constants>
   <Window>
     <!-- Container -->
-    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" HorizontalAlignment="Center">
+    <Widget WidthSizePolicy="StretchToParent" HeightSizePolicy="StretchToParent" HorizontalAlignment="Center" InheritRenderOrder="true">
       <Children>
-        <!-- Current Ammo Type Counter Visual -->
-        <AgentAmmoTextWidget DataSource="{..}" IsVisible="@ShowQuiverAmmoCount" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="80" SuggestedHeight="80" VerticalAlignment="Bottom" HorizontalAlignment="Right" MarginBottom="93" MarginRight="90" IntText="@QuiverAmmoLeft" Brush="AgentAmmoCountEx.Text" IsAlertEnabled="@IsQuiverAmmoCountAlertEnabled"/>
         <!-- Current Quiver Text Visual -->
-        <TextWidget Id="QuiverName" IsVisible="@ShowQuiverName" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="400" SuggestedHeight="80" VerticalAlignment="Bottom" HorizontalAlignment="Right" MarginBottom="110" MarginRight="108" Brush="AgentAmmoType.Text" Text="@QuiverName" />
+        <TextWidget Id="QuiverName" IsVisible="@ShowQuiverName" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="!Quiver.Name.TextWidget.Suggested.Width" SuggestedHeight="!Quiver.Name.TextWidget.Suggested.Height" VerticalAlignment="Bottom" HorizontalAlignment="Right" MarginBottom="!Quiver.Name.TextWidget.Margin.Bottom" MarginRight="!Quiver.Name.TextWidget.Margin.Right" Brush="AgentAmmoType.Text" Text="@QuiverName"/>
+        <!-- Current Quiver Image Visual -->
+        <ImageIdentifierWidget DataSource="{QuiverImage0}" ImageId="@Id" AdditionalArgs="@AdditionalArgs" ImageTypeCode="@ImageTypeCode" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="!Quiver.Active.Suggested.Width" SuggestedHeight="!Quiver.Active.Suggested.Height" PositionXOffset="!Quiver0.PositionXOffset" MarginBottom="!Quiver.Margin.Bottom" MarginRight="!Quiver.Margin.Right" HorizontalAlignment="Right" VerticalAlignment="Bottom" HideWhenNull="true" RenderOrder="0"/>
+        <!-- Other Equipped Quivers Visual -->
+        <ImageIdentifierWidget DataSource="{QuiverImage1}" ImageId="@Id" AdditionalArgs="@AdditionalArgs" ImageTypeCode="@ImageTypeCode" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="!Quiver.NotActive.Suggested.Width" SuggestedHeight="!Quiver.NotActive.Suggested.Height" PositionXOffset="!Quiver1.PositionXOffset" MarginBottom="!Quiver.Margin.Bottom" MarginRight="!Quiver.Margin.Right" HorizontalAlignment="Right" VerticalAlignment="Bottom" HideWhenNull="true"/>
+        <ImageIdentifierWidget DataSource="{QuiverImage2}" ImageId="@Id" AdditionalArgs="@AdditionalArgs" ImageTypeCode="@ImageTypeCode" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="!Quiver.NotActive.Suggested.Width" SuggestedHeight="!Quiver.NotActive.Suggested.Height" PositionXOffset="!Quiver2.PositionXOffset" MarginBottom="!Quiver.Margin.Bottom" MarginRight="!Quiver.Margin.Right" HorizontalAlignment="Right" VerticalAlignment="Bottom" HideWhenNull="true"/>
+        <ImageIdentifierWidget DataSource="{QuiverImage3}" ImageId="@Id" AdditionalArgs="@AdditionalArgs" ImageTypeCode="@ImageTypeCode" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="!Quiver.NotActive.Suggested.Width" SuggestedHeight="!Quiver.NotActive.Suggested.Height" PositionXOffset="!Quiver3.PositionXOffset" MarginBottom="!Quiver.Margin.Bottom" MarginRight="!Quiver.Margin.Right" HorizontalAlignment="Right" VerticalAlignment="Bottom" HideWhenNull="true"/>
+        <!-- Current Quiver Ammo Type Counter Visual -->
+        <AgentAmmoTextWidget DataSource="{..}" IsVisible="@ShowQuiverAmmoCount" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="80" SuggestedHeight="80" VerticalAlignment="Bottom" HorizontalAlignment="Right" MarginBottom="75" MarginRight="80" IntText="@QuiverAmmoLeft" Brush="AgentAmmoCountEx.Text" IsAlertEnabled="@IsQuiverAmmoCountAlertEnabled" RenderOrder="1"/>
       </Children>
     </Widget>    
   </Window>

@@ -1,18 +1,32 @@
+using System.Security.Cryptography;
 using Crpg.Module.Common;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
+using TaleWorlds.MountAndBlade.ViewModelCollection;
+
 namespace Crpg.Module.GUI;
 
 internal class RangedWeaponAmmoViewModel : ViewModel
 {
     // private MissionMultiplayerGameModeBaseClient _gameMode;
+    private const int MaxQuiverSlots = 4;
+    private const bool IsDebugEnabled = false;
     private readonly Mission _mission;
+    private readonly List<ImageIdentifierVM> _quiverImages;
+    // private AmmoQuiverChangeMissionBehavior? _weaponChangeBehavior;
     private bool _showQuiverAmmoCount;
     private int _quiverAmmoCount;
     private bool _isQuiverAmmoCountAlertEnabled;
     private string _quiverName;
     private bool _showQuiverName;
+    private MissionWeapon _wieldedWeapon;
+    private ImageIdentifierVM _quiverImage0;
+    private ImageIdentifierVM _quiverImage1;
+    private ImageIdentifierVM _quiverImage2;
+    private ImageIdentifierVM _quiverImage3;
+
+    private bool _rangedWeaponEquipped;
 
     public RangedWeaponAmmoViewModel(Mission mission)
     {
@@ -22,6 +36,21 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         _isQuiverAmmoCountAlertEnabled = false;
         _showQuiverAmmoCount = false;
         _showQuiverName = false;
+        _wieldedWeapon = MissionWeapon.Invalid;
+
+        _quiverImages = new List<ImageIdentifierVM>();
+        for (int i = 0; i < MaxQuiverSlots; i++)
+        {
+            _quiverImages.Add(new ImageIdentifierVM(ImageIdentifierType.Item));
+        }
+
+        _quiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
+        _quiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
+        _quiverImage2 = new ImageIdentifierVM(ImageIdentifierType.Item);
+        _quiverImage3 = new ImageIdentifierVM(ImageIdentifierType.Item);
+
+        _rangedWeaponEquipped = false;
+
         RefreshValues();
     }
 
@@ -42,45 +71,13 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         if (isPlayerActive)
         {
             UpdateWeaponStatuses();
+            UpdateQuiverImages();
         }
         else
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
         }
-    }
-
-    public bool RequestChangeRangedAmmo()
-    {
-        Agent agent = Agent.Main;
-
-        // Check if agent is wielding a weapon that uses quiver. bow xbow or musket
-        if (agent == null || !agent.IsActive() || !AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon mWeaponWielded))
-        {
-            return false;
-        }
-
-        // check agent quivers
-        if (!AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
-        {
-            return false;
-        }
-
-        // multiple quivers with ammo found
-        if (ammoQuivers.Count() > 1)
-        {
-            // InformationManager.DisplayMessage(new InformationMessage("RequestChangeRangedAmmo() Quivers Found: " + ammoQuivers.Count()));
-            GameNetwork.BeginModuleEventAsClient();
-            GameNetwork.WriteMessage(new ClientRequestAmmoQuiverChange());
-            GameNetwork.EndModuleEventAsClient();
-            return true;
-        }
-        else
-        {
-            // InformationManager.DisplayMessage(new InformationMessage("RequestChangeRangedAmmo() No Additional Quivers Found: "));
-        }
-
-        return false;
     }
 
     public bool GetCurrentQuiverAmmoAmount(out int currentQuiverAmmo, out int maxQuiverAmmo, out MissionWeapon ammoWeapon)
@@ -110,7 +107,20 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                 }
             }
 
-            // cycle through equipment and find first of ammo type
+            // Handle Thrown Quiver
+            if (!mWeaponWielded.IsEmpty && mWeaponWielded.Item != null)
+            {
+                if (mWeaponWielded.Item.Type == ItemObject.ItemTypeEnum.Thrown)
+                {
+                    QuiverAmmoLeft = mWeaponWielded.Amount;
+                    currentQuiverAmmo = mWeaponWielded.Amount;
+                    maxQuiverAmmo = mWeaponWielded.MaxAmmo;
+                    ammoWeapon = mWeaponWielded;
+                    return true;
+                }
+            }
+
+            // Not Throwing Quiver -- cycle through equipment and find first of ammo type
             for (EquipmentIndex equipmentIndex = EquipmentIndex.WeaponItemBeginSlot; equipmentIndex < EquipmentIndex.ExtraWeaponSlot; ++equipmentIndex)
             {
                 MissionWeapon mWeaponAmmo = agent.Equipment[equipmentIndex];
@@ -134,6 +144,77 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
 
         return false;
+    }
+
+    public void OnAgentWieldedWeaponChanged(EquipmentIndex weaponIndex, MissionWeapon weapon)
+    {
+        Agent agent = Agent.Main;
+        if (agent == null || !agent.IsActive())
+        {
+            return;
+        }
+
+        LogDebug("VM: OnAgentWieldedWeaponChanged");
+
+        if (AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
+        {
+            RangedWeaponEquipped = true;
+        }
+        else
+        {
+            RangedWeaponEquipped = false;
+        }
+
+        LogDebug($"VM: onAgentWieldedWeaponChanged: {RangedWeaponEquipped})");
+    }
+
+    public void OnMissileShot(Agent shooterAgent, EquipmentIndex weaponIndex)
+    {
+        LogDebug("VM: OnMissleShot");
+    }
+
+    public void UpdateQuiverImages()
+    {
+        Agent agent = Agent.Main;
+        if (agent == null || !agent.IsActive())
+        {
+            return;
+        }
+
+        if (RangedWeaponEquipped == false)
+        {
+            QuiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
+            QuiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
+            QuiverImage2 = new ImageIdentifierVM(ImageIdentifierType.Item);
+            QuiverImage3 = new ImageIdentifierVM(ImageIdentifierType.Item);
+            return;
+        }
+
+        AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers);
+        // LogDebug($"VM: UpdateQuiverImages: ammoQuivers: {ammoQuivers.Count})");
+
+        ImageIdentifierVM[] quiverImages = new ImageIdentifierVM[4]; // assuming max 4 quivers
+
+        for (int i = 0; i < quiverImages.Length; i++)
+        {
+            if (i < ammoQuivers.Count)
+            {
+                // check throwing
+
+                // check that matches ammo
+                MissionWeapon mQuiver = agent.Equipment[ammoQuivers[i]];
+                quiverImages[i] = mQuiver.IsEmpty ? new ImageIdentifierVM() : new ImageIdentifierVM(mQuiver.Item);
+            }
+            else
+            {
+                quiverImages[i] = new ImageIdentifierVM(ImageIdentifierType.Item);
+            }
+        }
+
+        QuiverImage0 = quiverImages[0];
+        QuiverImage1 = quiverImages[1];
+        QuiverImage2 = quiverImages[2];
+        QuiverImage3 = quiverImages[3];
     }
 
     private void UpdateWeaponStatuses()
@@ -259,6 +340,92 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                 _showQuiverName = value;
                 OnPropertyChangedWithValue(value);
             }
+        }
+    }
+
+    public MissionWeapon WieldedWeapon
+    {
+        get => _wieldedWeapon;
+        set
+        {
+            if (!_wieldedWeapon.IsEqualTo(value))
+            {
+                _wieldedWeapon = value;
+                OnPropertyChanged(nameof(_wieldedWeapon));
+            }
+        }
+    }
+
+    public ImageIdentifierVM QuiverImage0
+    {
+        get => _quiverImage0;
+        set
+        {
+            if (value != _quiverImage0)
+            {
+                _quiverImage0 = value;
+                OnPropertyChangedWithValue<ImageIdentifierVM>(value, nameof(QuiverImage0));
+            }
+        }
+    }
+
+    public ImageIdentifierVM QuiverImage1
+    {
+        get => _quiverImage1;
+        set
+        {
+            if (value != _quiverImage1)
+            {
+                _quiverImage1 = value;
+                OnPropertyChangedWithValue<ImageIdentifierVM>(value, nameof(QuiverImage1));
+            }
+        }
+    }
+
+    public ImageIdentifierVM QuiverImage2
+    {
+        get => _quiverImage2;
+        set
+        {
+            if (value != _quiverImage2)
+            {
+                _quiverImage2 = value;
+                OnPropertyChangedWithValue<ImageIdentifierVM>(value, nameof(QuiverImage2));
+            }
+        }
+    }
+
+    public ImageIdentifierVM QuiverImage3
+    {
+        get => _quiverImage3;
+        set
+        {
+            if (value != _quiverImage3)
+            {
+                _quiverImage3 = value;
+                OnPropertyChangedWithValue<ImageIdentifierVM>(value, nameof(QuiverImage3));
+            }
+        }
+    }
+
+    public bool RangedWeaponEquipped
+    {
+        get => _rangedWeaponEquipped;
+        set
+        {
+            if (value != _rangedWeaponEquipped)
+            {
+                _rangedWeaponEquipped = value;
+                OnPropertyChangedWithValue(value);
+            }
+        }
+    }
+
+    private void LogDebug(string message)
+    {
+        if (IsDebugEnabled)
+        {
+            InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
         }
     }
 }

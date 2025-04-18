@@ -18,6 +18,7 @@ internal class VickCommand : ChatCommand
         { "crpg_throwing_heavy_stone_v3_h3", "crpg_fish_harpoon_v3_h3", "crpg_throwing_hammers_v3_h2", "crpg_jereed_v3_h3" },
         { "crpg_simple_javelin_v4_h3", "crpg_noble_ranger_bow_v1_h3", "crpg_imperial_arrows_v2_h0", "crpg_imperial_arrows_v2_h3" },
         { "crpg_hassun_yumi_v1_h3", "crpg_bodkin_arrows_v3_h3", "crpg_bolt_g_v4_h1", "crpg_imperial_arrows_v2_h3" },
+        { "crpg_francesca_v3_h2", "crpg_tribesman_throwing_axe_v3_h3", "crpg_disabled_jamescross_v1_h3", "crpg_throwing_hammers_v3_h2" },
     };
     private readonly string[] weaponSetNames =
     {
@@ -29,6 +30,7 @@ internal class VickCommand : ChatCommand
         "throw",
         "throwmix",
         "bowxbow",
+        "throw2",
     };
     public VickCommand(ChatCommandsComponent chatComponent)
         : base(chatComponent)

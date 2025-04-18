@@ -115,6 +115,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
                 new CrpgUserManagerClient(), // Needs to be loaded before the Client mission part.
                 new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
                 new CrpgCommanderBehaviorClient(),
+                new AmmoQuiverChangeMissionBehavior(),
 #endif
                 dtvClient,
                 new MultiplayerTimerComponent(), // round timer
