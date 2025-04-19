@@ -1,25 +1,36 @@
 using System.ComponentModel;
+using System.Net.Mail;
+using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
+using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
+using TaleWorlds.MountAndBlade.Network.Messages;
 
 namespace Crpg.Module.Common;
 internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
 {
     public delegate void MissileShotHandler(Agent shooterAgent, EquipmentIndex weaponIndex);
-    public event MissileShotHandler OnMissileShot = (index, data) => { }; // Lambda initialization
     public delegate void WieldedItemChangedHandler(EquipmentIndex newWeaponIndex, MissionWeapon weapon);
+    public delegate void ItemDropHandler(Agent agent, SpawnedItemEntity spawnedItem);
+    public delegate void ItemPickupHandler(Agent agent, SpawnedItemEntity spawnedItem);
+    public event MissileShotHandler OnMissileShot = (index, data) => { }; // Lambda initialization
     public event WieldedItemChangedHandler WieldedItemChanged = (index, data) => { };
+    public event ItemDropHandler OnItemDrop = (agent, spawnedItem) => { };
+    public event ItemPickupHandler OnItemPickUp = (agent, spawnedItem) => { };
+    public delegate void AmmoQuiverChangedHandler(Agent agent);
+    public event AmmoQuiverChangedHandler OnAmmoQuiverChanged = (agent) => { };
 
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
     private const bool IsDebugEnabled = false;
     private static int _instanceCount = 0;
+    private readonly GameNetwork.NetworkMessageHandlerRegisterer _networkMessageHandlerRegisterer;
     private MissionTime _lastMissileShotTime = MissionTime.Zero;
-    // private MissionTime _lastWeaponChangeTime = MissionTime.Zero;
 
     public AmmoQuiverChangeMissionBehavior()
     {
+        _networkMessageHandlerRegisterer = new GameNetwork.NetworkMessageHandlerRegisterer(GameNetwork.NetworkMessageHandlerRegisterer.RegisterMode.Add);
         _instanceCount++;
         LogDebug($"AmmoQuiverChangeMissionBehavior instance {_instanceCount} created (Hash: {GetHashCode()})");
     }
@@ -62,12 +73,7 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
 
             _lastMissileShotTime = MissionTime.Now;
 
-            if (GameNetwork.IsServer && shooterAgent == Agent.Main)
-            {
-                return;
-            }
-
-            LogDebug($"MB: OnAgentShootMissile()");
+            LogDebug($"MB: OnAgentShootMissile() - for main agent only");
             OnMissileShot(shooterAgent, weaponIndex);
         }
     }
@@ -75,6 +81,20 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
     public override void OnBehaviorInitialize()
     {
         LogDebug($"MB: OnBehaviorInitialize()");
+        if (!GameNetwork.IsServer)
+        {
+            Debug.Print("Registering CustomServerMessage handler on client.", 0, Debug.DebugColor.Green);
+            _networkMessageHandlerRegisterer.Register<CustomServerMessage>(HandleCustomServerMessage);
+        }
+
+        if (Mission.Current != null)
+        {
+            Mission.Current.OnItemDrop += HandleItemDrop;
+            Mission.Current.OnItemPickUp += HandleItemPickup;
+        }
+
+        OnAmmoQuiverChanged += HandleAmmoQuiverChange;
+
         base.OnBehaviorInitialize();
         InitializeMainAgentPropterties();
     }
@@ -82,14 +102,26 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
     public override void OnRemoveBehavior()
     {
         LogDebug($"MB: OnRemoveBehavior()");
-        Mission.Current.OnMainAgentChanged -= OnMainAgentChanged;
+
         if (Agent.Main != null)
         {
             Agent.Main.OnMainAgentWieldedItemChange -= OnMainAgentWieldedItemChange;
         }
 
+        if (Mission.Current != null)
+        {
+            Mission.Current.OnMainAgentChanged -= OnMainAgentChanged;
+            Mission.Current.OnItemDrop -= HandleItemDrop;
+            Mission.Current.OnItemPickUp -= HandleItemPickup;
+        }
+
+        OnAmmoQuiverChanged -= HandleAmmoQuiverChange;
+
         OnMissileShot = (index, data) => { };
         WieldedItemChanged = (index, data) => { };
+        OnItemDrop = (agent, spawnedItem) => { };
+        OnItemPickUp = (agent, spawnedItem) => { };
+        OnAmmoQuiverChanged = (agent) => { };
 
         _instanceCount--;
         base.OnRemoveBehavior();
@@ -100,6 +132,7 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
         LogDebug($"MB: InitializeMainAgentPropterties()");
         Mission.Current.OnMainAgentChanged -= OnMainAgentChanged;
         Mission.Current.OnMainAgentChanged += OnMainAgentChanged;
+
         OnMainAgentChanged(null, null);
     }
 
@@ -139,9 +172,36 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
         return false;
     }
 
-    protected override void OnEndMission()
+    private void HandleItemDrop(Agent agent, SpawnedItemEntity spawnedItem)
     {
-        // not needed so far
+        if (agent != null && spawnedItem != null && Mission.MainAgent != null && agent == Mission.MainAgent && agent.IsActive())
+        {
+            LogDebug($"MB: HandleItemDrop() - for main agent only");
+            OnItemDrop?.Invoke(agent, spawnedItem);
+        }
+    }
+
+    private void HandleItemPickup(Agent agent, SpawnedItemEntity spawnedItem)
+    {
+        if (agent != null && spawnedItem != null && Mission.MainAgent != null && agent == Mission.MainAgent && Mission.MainAgent.IsActive())
+        {
+            LogDebug($"MB: HandleItemPickup() - for main agent only");
+            OnItemPickUp?.Invoke(agent, spawnedItem);
+        }
+    }
+
+    private void HandleAmmoQuiverChange(Agent agent)
+    {
+        LogDebug($"MB: AmmoQuiverChangedHandler");
+    }
+
+    private void HandleCustomServerMessage(CustomServerMessage message)
+    {
+        LogDebug($"HandleCustomServerMessage: {message.Message}");
+        if (message.Message == "AmmoQuiverChanged")
+        {
+            OnAmmoQuiverChanged?.Invoke(Agent.Main);
+        }
     }
 
     private void OnMainAgentChanged(object? sender, PropertyChangedEventArgs? e)
@@ -159,14 +219,6 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
 
     private void OnMainAgentWieldedItemChange()
     {
-        /*
-        if (MissionTime.Now - _lastWeaponChangeTime < MissionTime.Seconds(2f / 60f))
-        {
-            return;
-        }
-
-        _lastWeaponChangeTime = MissionTime.Now;
-        */
         LogDebug($"MB: OnMainAgentWieldedItemChange() ");
 
         Agent agent = Agent.Main;
@@ -183,6 +235,7 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
         WieldedItemChanged?.Invoke(wieldedWeaponIndex, weapon);
     }
 
+#pragma warning disable CS0162 // Unreachable code if debug disabled
     private void LogDebug(string message)
     {
         if (IsDebugEnabled)
@@ -190,4 +243,6 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
             InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
         }
     }
+#pragma warning restore CS0162
+
 }

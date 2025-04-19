@@ -29,7 +29,7 @@
       <BrushLayer Name="Default"/>
     </Layers>
     <Styles>
-      <Style Name="Default" FontColor="#FFFFFFFF" TextOutlineColor="#000000FF" TextOutlineAmount="0.1" TextGlowRadius="0" TextBlur="0.25" FontSize="18"/>
+      <Style Name="Default" FontColor="#FFFFFFFF" TextOutlineColor="#000000FF" TextOutlineAmount="0.1" TextGlowRadius="0" TextBlur="0.25" FontSize="16"/>
     </Styles>
   </Brush>
 </Brushes>

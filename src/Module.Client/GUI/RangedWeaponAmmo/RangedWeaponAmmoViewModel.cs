@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Crpg.Module.Common;
+using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
@@ -12,37 +13,33 @@ internal class RangedWeaponAmmoViewModel : ViewModel
     // private MissionMultiplayerGameModeBaseClient _gameMode;
     private const int MaxQuiverSlots = 4;
     private const bool IsDebugEnabled = false;
+
     private readonly Mission _mission;
-    private readonly List<ImageIdentifierVM> _quiverImages;
-    // private AmmoQuiverChangeMissionBehavior? _weaponChangeBehavior;
     private bool _showQuiverAmmoCount;
-    private int _quiverAmmoCount;
+    private bool _showQuiverName;
     private bool _isQuiverAmmoCountAlertEnabled;
     private string _quiverName;
-    private bool _showQuiverName;
+
     private MissionWeapon _wieldedWeapon;
+    private MissionWeapon _currentQuiver;
+    private int _currentQuiverAmmo;
+    private bool _rangedWeaponEquipped;
+
     private ImageIdentifierVM _quiverImage0;
     private ImageIdentifierVM _quiverImage1;
     private ImageIdentifierVM _quiverImage2;
     private ImageIdentifierVM _quiverImage3;
 
-    private bool _rangedWeaponEquipped;
-
     public RangedWeaponAmmoViewModel(Mission mission)
     {
         _mission = mission;
         _quiverName = string.Empty;
-        _quiverAmmoCount = 0;
+        _currentQuiverAmmo = 0;
         _isQuiverAmmoCountAlertEnabled = false;
         _showQuiverAmmoCount = false;
         _showQuiverName = false;
         _wieldedWeapon = MissionWeapon.Invalid;
-
-        _quiverImages = new List<ImageIdentifierVM>();
-        for (int i = 0; i < MaxQuiverSlots; i++)
-        {
-            _quiverImages.Add(new ImageIdentifierVM(ImageIdentifierType.Item));
-        }
+        _currentQuiver = MissionWeapon.Invalid;
 
         _quiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
         _quiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
@@ -66,25 +63,98 @@ internal class RangedWeaponAmmoViewModel : ViewModel
 
     public void Tick(float dt)
     {
-        bool isPlayerActive = _mission?.MainAgent?.IsActive() == true;
-
-        if (isPlayerActive)
-        {
-            UpdateWeaponStatuses();
-            UpdateQuiverImages();
-        }
-        else
+        if (_mission?.MainAgent?.IsActive() != true)
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
+            return;
         }
+
+        UpdateWeaponStatuses();
     }
 
-    public bool GetCurrentQuiverAmmoAmount(out int currentQuiverAmmo, out int maxQuiverAmmo, out MissionWeapon ammoWeapon)
+    public bool UpdateCurrentQuiver(out MissionWeapon ammoWeapon, out ItemObject.ItemTypeEnum currentAmmoType)
+    {
+        ammoWeapon = MissionWeapon.Invalid;
+        currentAmmoType = ItemObject.ItemTypeEnum.Invalid;
+        Agent agent = Agent.Main;
+
+        if (agent == null || !agent.IsActive())
+        {
+            return false;
+        }
+
+        if (WieldedWeapon.IsEmpty ||
+            WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) ||
+            WieldedWeapon.Item == null ||
+            !agent.GetWieldedWeaponInfo(Agent.HandIndex.MainHand).IsRangedWeapon)
+        {
+            return false;
+        }
+
+        ItemObject.ItemTypeEnum currentWeaponType = WieldedWeapon.Item.Type;
+        if (currentWeaponType != ItemObject.ItemTypeEnum.Bow &&
+            currentWeaponType != ItemObject.ItemTypeEnum.Crossbow &&
+            currentWeaponType != ItemObject.ItemTypeEnum.Thrown &&
+            currentWeaponType != ItemObject.ItemTypeEnum.Musket)
+        {
+            return false;
+        }
+
+        currentAmmoType = ItemObject.GetAmmoTypeForItemType(currentWeaponType);
+        // set for handguns
+        if (currentWeaponType == ItemObject.ItemTypeEnum.Musket)
+        {
+            currentAmmoType = ItemObject.ItemTypeEnum.Bullets;
+        }
+
+        MissionWeapon originalQuiver = CurrentQuiver;
+
+        // Handle Throwing
+        if (currentWeaponType == ItemObject.ItemTypeEnum.Thrown)
+        {
+            CurrentQuiver = WieldedWeapon;
+            CurrentQuiverAmmo = WieldedWeapon.Amount;
+
+            if (!CurrentQuiver.IsEqualTo(originalQuiver)) // new/different quiver ammo
+            {
+                UpdateQuiverImages();
+            }
+
+            return true;
+        }
+
+        // Not Throwing -- cycle through equipment and find first of ammo type
+        for (EquipmentIndex eIndex = EquipmentIndex.WeaponItemBeginSlot; eIndex < EquipmentIndex.ExtraWeaponSlot; eIndex++)
+        {
+            MissionWeapon mWeaponAmmo = agent.Equipment[eIndex];
+            if (mWeaponAmmo.Item.Type == currentAmmoType) // matches current ammo type neede
+            {
+                if (mWeaponAmmo.Amount <= 0) // quiver has no ammo left
+                {
+                    continue;
+                }
+
+                CurrentQuiver = mWeaponAmmo;
+                CurrentQuiverAmmo = CurrentQuiver.Amount;
+
+                if (!CurrentQuiver.IsEqualTo(originalQuiver)) // new/different quiver ammo
+                {
+                    UpdateQuiverImages();
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public bool GetCurrentQuiverAmmoAmount(out int activeQuiverAmmo, out int maxQuiverAmmo, out MissionWeapon ammoWeapon)
     {
         Agent agent = Agent.Main;
         ItemObject.ItemTypeEnum currentAmmoType = ItemObject.ItemTypeEnum.Invalid;
-        currentQuiverAmmo = 0;
+        activeQuiverAmmo = 0;
         maxQuiverAmmo = 0;
         ammoWeapon = MissionWeapon.Invalid;
 
@@ -112,8 +182,10 @@ internal class RangedWeaponAmmoViewModel : ViewModel
             {
                 if (mWeaponWielded.Item.Type == ItemObject.ItemTypeEnum.Thrown)
                 {
-                    QuiverAmmoLeft = mWeaponWielded.Amount;
-                    currentQuiverAmmo = mWeaponWielded.Amount;
+                    CurrentQuiverAmmo = mWeaponWielded.Amount;
+                    CurrentQuiver = mWeaponWielded;
+
+                    activeQuiverAmmo = mWeaponWielded.Amount;
                     maxQuiverAmmo = mWeaponWielded.MaxAmmo;
                     ammoWeapon = mWeaponWielded;
                     return true;
@@ -133,10 +205,18 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                             continue;
                         }
 
-                        QuiverAmmoLeft = mWeaponAmmo.Amount;
-                        currentQuiverAmmo = mWeaponAmmo.Amount;
+                        CurrentQuiverAmmo = mWeaponAmmo.Amount;
+
+                        activeQuiverAmmo = mWeaponAmmo.Amount;
                         maxQuiverAmmo = mWeaponAmmo.MaxAmmo;
                         ammoWeapon = mWeaponAmmo;
+                        if (!CurrentQuiver.IsEqualTo(mWeaponAmmo))
+                        {
+                            CurrentQuiver = mWeaponAmmo;
+                            UpdateQuiverImages();
+                        }
+
+                        CurrentQuiver = mWeaponAmmo;
                         return true;
                     }
                 }
@@ -154,34 +234,32 @@ internal class RangedWeaponAmmoViewModel : ViewModel
             return;
         }
 
-        LogDebug("VM: OnAgentWieldedWeaponChanged");
-
-        if (AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
+        RangedWeaponEquipped = AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon);
+        string weaponName = string.Empty;
+        if (!wieldedWeapon.IsEmpty)
         {
-            RangedWeaponEquipped = true;
+            WieldedWeapon = wieldedWeapon;
+            weaponName = WieldedWeapon.Item?.Name.ToString() ?? string.Empty;
         }
         else
         {
-            RangedWeaponEquipped = false;
+            WieldedWeapon = MissionWeapon.Invalid;
         }
 
-        LogDebug($"VM: onAgentWieldedWeaponChanged: {RangedWeaponEquipped})");
-    }
-
-    public void OnMissileShot(Agent shooterAgent, EquipmentIndex weaponIndex)
-    {
-        LogDebug("VM: OnMissleShot");
+        UpdateQuiverImages();
+        UpdateWeaponStatuses();
+        LogDebug($"VM: onAgentWieldedWeaponChanged: {weaponName} Ranged: {RangedWeaponEquipped})");
     }
 
     public void UpdateQuiverImages()
     {
         Agent agent = Agent.Main;
-        if (agent == null || !agent.IsActive())
+        if (agent == null)
         {
             return;
         }
 
-        if (RangedWeaponEquipped == false)
+        if (!agent.IsActive() || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
         {
             QuiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
             QuiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
@@ -195,12 +273,22 @@ internal class RangedWeaponAmmoViewModel : ViewModel
 
         ImageIdentifierVM[] quiverImages = new ImageIdentifierVM[4]; // assuming max 4 quivers
 
+        // Throwing - remove wielded weapon from ammoQuivers list since there is a big picture of the weapon already
+        if (WieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown)
+        {
+            int? matchingIndex = ammoQuivers
+                .FirstOrDefault(index => agent.Equipment[(EquipmentIndex)index].IsEqualTo(WieldedWeapon));
+
+            if (matchingIndex.HasValue)
+            {
+                ammoQuivers.Remove(matchingIndex.Value);
+            }
+        }
+
         for (int i = 0; i < quiverImages.Length; i++)
         {
             if (i < ammoQuivers.Count)
             {
-                // check throwing
-
                 // check that matches ammo
                 MissionWeapon mQuiver = agent.Equipment[ammoQuivers[i]];
                 quiverImages[i] = mQuiver.IsEmpty ? new ImageIdentifierVM() : new ImageIdentifierVM(mQuiver.Item);
@@ -217,18 +305,36 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         QuiverImage3 = quiverImages[3];
     }
 
-    private void UpdateWeaponStatuses()
+    public void UpdateWeaponStatuses()
     {
         Agent agent = Agent.Main;
         if (agent == null || !agent.IsActive())
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
+            WieldedWeapon = MissionWeapon.Invalid;
+            CurrentQuiver = MissionWeapon.Invalid;
             return;
         }
 
-        // Show Ammo count textwidget if there are multiple quivers and its not empty
-        if (!GetCurrentQuiverAmmoAmount(out int currentQuiverAmmo, out int maxQuiverAmmo, out MissionWeapon ammoWeapon) || currentQuiverAmmo <= 0)
+        if (WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid))
+        {
+            ShowQuiverAmmoCount = false;
+            ShowQuiverName = false;
+            WieldedWeapon = MissionWeapon.Invalid;
+            CurrentQuiver = MissionWeapon.Invalid;
+            return;
+        }
+
+        // Hide Ammo count and name if current ammo quiver is empty
+        if (!UpdateCurrentQuiver(out MissionWeapon ammoWeapon1, out ItemObject.ItemTypeEnum currentAmmoType) || CurrentQuiverAmmo <= 0)
+        {
+            ShowQuiverAmmoCount = false;
+            ShowQuiverName = false;
+            return;
+        }
+
+        if (CurrentQuiver.IsEqualTo(MissionWeapon.Invalid) || CurrentQuiver.IsEmpty || CurrentQuiver.Item == null)
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
@@ -237,35 +343,31 @@ internal class RangedWeaponAmmoViewModel : ViewModel
 
         ShowQuiverAmmoCount = false;
 
-        // check for this being the last quiver with ammo
+        // Get list of quivers
         if (AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
         {
-            // hide quiver ammo if its the only quiver or thrown weapon
-            bool isThrown = ammoWeapon.Item.ItemType == ItemObject.ItemTypeEnum.Thrown;
+            int maxQuiverAmmo = CurrentQuiver.MaxAmmo;
+            // show quiver ammo if there are multiple quivers or thrown weapon
+            bool isThrown = CurrentQuiver.Item.ItemType == ItemObject.ItemTypeEnum.Thrown;
             if (ammoQuivers.Count() > 1 || isThrown)
             {
                 ShowQuiverAmmoCount = true;
                 float f = (float)maxQuiverAmmo * 0.2f;
-                IsQuiverAmmoCountAlertEnabled = maxQuiverAmmo != QuiverAmmoLeft && QuiverAmmoLeft <= MathF.Ceiling(f);
+                IsQuiverAmmoCountAlertEnabled = maxQuiverAmmo != CurrentQuiverAmmo && CurrentQuiverAmmo <= MathF.Ceiling(f);
             }
         }
 
-        // display quiver name, still display name if thrown but no ammo amount
-        if (!ammoWeapon.IsEqualTo(MissionWeapon.Invalid))
+        // display quiver name
+        if (!CurrentQuiver.IsEqualTo(MissionWeapon.Invalid))
         {
             // check if the ammo weapon is the wielded weapon ie throwing
-            EquipmentIndex wieldedWeaponIndex = agent.GetWieldedItemIndex(Agent.HandIndex.MainHand);
-            if (wieldedWeaponIndex != EquipmentIndex.None)
+            if (!WieldedWeapon.IsEmpty && WieldedWeapon.Item != null)
             {
-                MissionWeapon wieldedWeapon = agent.Equipment[wieldedWeaponIndex];
-                if (!wieldedWeapon.IsEmpty && wieldedWeapon.Item != null)
-                {
-                    QuiverName = wieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown
-                        ? wieldedWeapon.Item.Name.ToString()
-                        : ammoWeapon.Item.Name.ToString();
+                QuiverName = WieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown
+                            ? WieldedWeapon.Item.Name.ToString()
+                            : CurrentQuiver.Item.Name.ToString();
 
-                    ShowQuiverName = true;
-                }
+                ShowQuiverName = true;
             }
         }
     }
@@ -288,14 +390,14 @@ internal class RangedWeaponAmmoViewModel : ViewModel
     }
 
     [DataSourceProperty]
-    public int QuiverAmmoLeft
+    public int CurrentQuiverAmmo
     {
-        get => _quiverAmmoCount;
+        get => _currentQuiverAmmo;
         set
         {
-            if (value != _quiverAmmoCount)
+            if (value != _currentQuiverAmmo)
             {
-                _quiverAmmoCount = value;
+                _currentQuiverAmmo = value;
                 OnPropertyChangedWithValue(value);
             }
         }
@@ -352,6 +454,19 @@ internal class RangedWeaponAmmoViewModel : ViewModel
             {
                 _wieldedWeapon = value;
                 OnPropertyChanged(nameof(_wieldedWeapon));
+            }
+        }
+    }
+
+    public MissionWeapon CurrentQuiver
+    {
+        get => _currentQuiver;
+        set
+        {
+            if (!_currentQuiver.IsEqualTo(value))
+            {
+                _currentQuiver = value;
+                OnPropertyChanged(nameof(_currentQuiver));
             }
         }
     }
@@ -421,6 +536,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 
+#pragma warning disable CS0162 // Unreachable code if debug disabled
     private void LogDebug(string message)
     {
         if (IsDebugEnabled)
@@ -429,3 +545,4 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 }
+#pragma warning restore CS0162

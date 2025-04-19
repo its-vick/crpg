@@ -10,6 +10,7 @@ using TaleWorlds.PlayerServices;
 namespace Crpg.Module.Common;
 internal class AmmoQuiverChangeComponent : MissionNetwork
 {
+    // private AmmoQuiverChangeMissionBehavior? _weaponChangeBehavior;
     private readonly Dictionary<PlayerId, ChangeStatus> _wantsToChangeAmmoQuiver;
     public AmmoQuiverChangeComponent()
     {
@@ -234,6 +235,17 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
     }
 
+    public void SendMessageToClient(NetworkCommunicator targetPeer, string message)
+    {
+        if (GameNetwork.IsServer)
+        {
+            CustomServerMessage serverMessage = new(message);
+            GameNetwork.BeginModuleEventAsServer(targetPeer);
+            GameNetwork.WriteMessage(serverMessage);
+            GameNetwork.EndModuleEventAsServer();
+        }
+    }
+
     protected override void AddRemoveMessageHandlers(GameNetwork.NetworkMessageHandlerRegistererContainer registerer)
     {
         if (GameNetwork.IsServer)
@@ -293,7 +305,7 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
 
         PlayerId playerId = peer.VirtualPlayer.Id;
 
-        // check if loaded ammo in weapon -- set flag and wait until shot or weapon changed to execute
+        // check if loaded ammo in weapon -- set flag and wait until shot or weapon changed to execute WIP
         if (!_wantsToChangeAmmoQuiver.TryGetValue(playerId, out var lastActiveStatus))
         {
             _wantsToChangeAmmoQuiver[playerId] = new ChangeStatus
@@ -427,6 +439,7 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
 
         agent.UpdateWeapons();
+        SendMessageToClient(peer, "AmmoQuiverChanged");
         /*
         EquipmentIndex ammoIndex = GetEquippedQuiverItemIndex(agent);
         int ammoCount = agent.Equipment[ammoIndex].Ammo;
@@ -553,5 +566,43 @@ internal sealed class ClientRequestAmmoQuiverChange : GameNetworkMessage
     protected override string OnGetLogFormat()
     {
         return "Request to change ammo quiver";
+    }
+}
+
+[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
+internal sealed class CustomServerMessage : GameNetworkMessage
+{
+    public string Message { get; private set; }
+
+    public CustomServerMessage()
+    {
+        Message = string.Empty; // default value
+    }
+
+    public CustomServerMessage(string message)
+    {
+        Message = message;
+    }
+
+    protected override bool OnRead()
+    {
+        bool bufferReadValid = true;
+        Message = ReadStringFromPacket(ref bufferReadValid);
+        return bufferReadValid;
+    }
+
+    protected override void OnWrite()
+    {
+        WriteStringToPacket(Message);
+    }
+
+    protected override MultiplayerMessageFilter OnGetLogFilter()
+    {
+        return MultiplayerMessageFilter.General;
+    }
+
+    protected override string OnGetLogFormat()
+    {
+        return "CustomServerMessage: " + Message;
     }
 }

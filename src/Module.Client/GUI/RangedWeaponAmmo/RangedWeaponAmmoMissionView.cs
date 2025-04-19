@@ -23,14 +23,23 @@ internal class RangedWeaponAmmoMissionView : MissionView
         _viewModel = new RangedWeaponAmmoViewModel(Mission);
         _weaponChangeBehavior = Mission.GetMissionBehavior<AmmoQuiverChangeMissionBehavior>();
 
-        // subscribe to mission behavior events
+        // Subscribe to mission behavior events
         _weaponChangeBehavior.OnMissileShot -= OnMissileShot;
         _weaponChangeBehavior.OnMissileShot += OnMissileShot;
 
         _weaponChangeBehavior.WieldedItemChanged -= OnWieldedItemChanged;
         _weaponChangeBehavior.WieldedItemChanged += OnWieldedItemChanged;
 
-        // initialize Gauntlet UI layer
+        _weaponChangeBehavior.OnItemDrop -= OnItemDrop;
+        _weaponChangeBehavior.OnItemDrop += OnItemDrop;
+
+        _weaponChangeBehavior.OnItemPickUp -= OnItemPickUp;
+        _weaponChangeBehavior.OnItemPickUp += OnItemPickUp;
+
+        _weaponChangeBehavior.OnAmmoQuiverChanged -= OnAmmoQuiverChanged;
+        _weaponChangeBehavior.OnAmmoQuiverChanged += OnAmmoQuiverChanged;
+
+        // Initialize Gauntlet UI layer
         _gauntletLayer = new GauntletLayer(ViewOrderPriority);
         _gauntletLayer.LoadMovie("RangedWeaponAmmoHud", _viewModel);
         MissionScreen.AddLayer(_gauntletLayer);
@@ -43,6 +52,9 @@ internal class RangedWeaponAmmoMissionView : MissionView
         {
             _weaponChangeBehavior.OnMissileShot -= OnMissileShot;
             _weaponChangeBehavior.WieldedItemChanged -= OnWieldedItemChanged;
+            _weaponChangeBehavior.OnItemDrop -= OnItemDrop;
+            _weaponChangeBehavior.OnItemDrop -= OnItemPickUp;
+            _weaponChangeBehavior.OnAmmoQuiverChanged -= OnAmmoQuiverChanged;
         }
 
         if (_gauntletLayer != null)
@@ -62,12 +74,11 @@ internal class RangedWeaponAmmoMissionView : MissionView
         /*
                 if (Input.IsGameKeyPressed(HotKeyManager.GetCategory("CombatHotKeyCategory").GetGameKey("ToggleWeaponMode").Id)) // default is X
                 {
-                    _viewModel!.RequestChangeRangedAmmo();
+                    _weaponChangeBehavior?.RequestChangeRangedAmmo();
                 }
         */
         if (Input.IsKeyPressed(TaleWorlds.InputSystem.InputKey.C)) // C for now
         {
-            // _viewModel!.RequestChangeRangedAmmo();
             _weaponChangeBehavior?.RequestChangeRangedAmmo();
         }
 
@@ -76,12 +87,31 @@ internal class RangedWeaponAmmoMissionView : MissionView
 
     private void OnMissileShot(Agent shooterAgent, EquipmentIndex weaponIndex)
     {
-        _viewModel?.OnMissileShot(shooterAgent, weaponIndex);
+        // _viewModel?.OnMissileShot(shooterAgent, weaponIndex);
+        _viewModel?.UpdateWeaponStatuses();
+        _viewModel?.UpdateQuiverImages();
     }
 
     private void OnWieldedItemChanged(EquipmentIndex newWeaponIndex, MissionWeapon missionWeapon)
     {
         _viewModel?.OnAgentWieldedWeaponChanged(newWeaponIndex, missionWeapon);
-        // _viewModel.RangedWeaponEquipped = true;
+    }
+
+    private void OnItemDrop(Agent agent, SpawnedItemEntity spawnedItem)
+    {
+        _viewModel?.UpdateWeaponStatuses();
+        _viewModel?.UpdateQuiverImages();
+    }
+
+    private void OnItemPickUp(Agent agent, SpawnedItemEntity spawnedItem)
+    {
+        _viewModel?.UpdateWeaponStatuses();
+        _viewModel?.UpdateQuiverImages();
+    }
+
+    private void OnAmmoQuiverChanged(Agent agent)
+    {
+        _viewModel?.UpdateWeaponStatuses();
+        _viewModel?.UpdateQuiverImages();
     }
 }
