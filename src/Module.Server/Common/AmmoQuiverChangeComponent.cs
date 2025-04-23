@@ -26,28 +26,52 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
                item.Type == ItemObject.ItemTypeEnum.Thrown);
     }
 
-    public static EquipmentIndex GetEquippedQuiverItemIndex(Agent agent)
+    public static bool GetCurrentQuiver(Agent agent, out MissionWeapon quiverWeapon, out EquipmentIndex quiverIndex)
     {
-        if (agent != null && agent.IsActive())
+        quiverWeapon = MissionWeapon.Invalid;
+        quiverIndex = EquipmentIndex.None;
+
+        if (agent == null || !agent.IsActive())
         {
-            MissionEquipment equipment = agent.Equipment;
-
-            // List to store quiver indexes
-            var ammoQuivers = new System.Collections.Generic.List<int>();
-
-            // Loop through equipment and find quivers
-            for (int i = 0; i < 4; i++)
-            {
-                var item = equipment[i].Item;
-                // Check if item is a quiver and not empty
-                if (item != null && !equipment[i].IsEmpty && IsQuiverItem(item))
-                {
-                    return (EquipmentIndex)i;
-                }
-            }
+            return false;
         }
 
-        return EquipmentIndex.None;
+        EquipmentIndex wieldedItemIndex = agent.GetWieldedItemIndex(Agent.HandIndex.MainHand);
+        MissionWeapon wieldedWeapon = MissionWeapon.Invalid;
+
+        if (wieldedItemIndex == EquipmentIndex.None)
+        {
+            return false;
+        }
+
+        wieldedWeapon = agent.Equipment[wieldedItemIndex];
+        if (wieldedWeapon.IsEmpty || wieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || wieldedWeapon.Item == null)
+        {
+            return false;
+        }
+
+        if (!GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
+        {
+            return false;
+        }
+
+        if (wieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown)
+        {
+            quiverWeapon = wieldedWeapon;
+            quiverIndex = wieldedItemIndex;
+        }
+        else
+        {
+            if (ammoQuivers.Count <= 0)
+            {
+                return false;
+            }
+
+            quiverWeapon = agent.Equipment[ammoQuivers[0]];
+            quiverIndex = (EquipmentIndex)ammoQuivers[0];
+        }
+
+        return true;
     }
 
     public static bool GetAgentQuiversEquipped(Agent agent, out List<int> ammoQuivers)
@@ -199,39 +223,53 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
     {
         base.OnMissionTick(dt);
 
-        // if user has an arrow loaded or reloading
-        foreach (var networkPeer in GameNetwork.NetworkPeers)
+        var pendingChanges = new List<NetworkCommunicator>();
+        var cancelledChanges = new List<NetworkCommunicator>();
+
+        foreach (var kvp in _wantsToChangeAmmoQuiver)
         {
-            var playerId = networkPeer.VirtualPlayer.Id;
-            var agent = networkPeer.ControlledAgent;
+            var playerId = kvp.Key;
+            var quiverRequest = kvp.Value;
 
-            if (agent == null || !agent.IsActive()) // agent no longer exists/spawned?
-            {
-                _wantsToChangeAmmoQuiver.Remove(playerId);
-                continue;
-            }
-
-            if (!_wantsToChangeAmmoQuiver.TryGetValue(playerId, out var wantsToChangeAmmoQuiver)) // not requesting
+            if (!quiverRequest.AmmoChangeRequested)
             {
                 continue;
             }
 
-            if (wantsToChangeAmmoQuiver.AmmoChangeRequested) // requested to change quivers
+            var peer = GameNetwork.NetworkPeers.FirstOrDefault(p => p.VirtualPlayer.Id == playerId);
+            if (peer == null)
             {
-                // ammo not loaded in weapon or reloading or changed weapons
-                if (!IsAgentRangedWeaponLoadedOrLoading(agent, out bool notRangedWeapon))
+                continue;
+            }
+
+            var agent = peer.ControlledAgent;
+            if (agent == null || !agent.IsActive())
+            {
+                cancelledChanges.Add(peer);
+                continue;
+            }
+
+            if (!IsAgentRangedWeaponLoadedOrLoading(agent, out bool notRangedWeapon))
+            {
+                if (notRangedWeapon)
                 {
-                    if (notRangedWeapon) // changed weapon waiting for a quiver change (ie loaded xbow)
-                    {
-                        _wantsToChangeAmmoQuiver.Remove(playerId); // cancel quiver change request
-                    }
-                    else
-                    {
-                        ExecuteClientAmmoQuiverChange(networkPeer);
-                        // ExecuteClientAmmoQuiverChangeSimple(networkPeer);
-                    }
+                    cancelledChanges.Add(peer);
+                }
+                else
+                {
+                    pendingChanges.Add(peer);
                 }
             }
+        }
+
+        foreach (var peer in cancelledChanges)
+        {
+            _wantsToChangeAmmoQuiver.Remove(peer.VirtualPlayer.Id);
+        }
+
+        foreach (var peer in pendingChanges)
+        {
+            ExecuteClientAmmoQuiverChange(peer);
         }
     }
 
@@ -257,38 +295,36 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
     private static bool IsAgentRangedWeaponLoadedOrLoading(Agent agent, out bool notRangedWeapon)
     {
         notRangedWeapon = false;
+
         if (agent == null || !agent.IsActive())
         {
             return false;
         }
 
-        if (IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
+        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out _))
         {
-            var itemType = wieldedWeapon.Item.Type;
-            if (itemType == ItemObject.ItemTypeEnum.Bow)
-            {
-                if (wieldedWeapon.ReloadPhase != 0)
-                {
-                    return true;
-                }
-            }
-            else if (itemType == ItemObject.ItemTypeEnum.Crossbow || itemType == ItemObject.ItemTypeEnum.Musket)
-            {
-                if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.Reload)
-                {
-                    return true;
-                }
-
-                if (wieldedWeapon.ReloadPhase != 0)
-                {
-                    return true;
-                }
-            }
-        }
-        else
-        { // maybe changed weapons with a xbow bolt loaded should cancel request to reduce checks on tick?
             notRangedWeapon = true;
             return false;
+        }
+
+        var item = weapon.Item;
+        if (item == null)
+        {
+            return false;
+        }
+
+        var type = item.Type;
+
+        // Bows: check reload phase
+        if (type == ItemObject.ItemTypeEnum.Bow)
+        {
+            return weapon.ReloadPhase != 0;
+        }
+
+        // Crossbows & Muskets: check reload animation or reload phase
+        if (type == ItemObject.ItemTypeEnum.Crossbow || type == ItemObject.ItemTypeEnum.Musket)
+        {
+            return agent.GetCurrentActionType(1) == Agent.ActionCodeType.Reload || weapon.ReloadPhase != 0;
         }
 
         return false;
@@ -454,86 +490,52 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
 
     private void CycleThrowingQuivers(Agent agent, EquipmentIndex wieldedWeaponIndex, MissionEquipment equipment, List<int> ammoQuivers)
     {
-        // TaleWorlds.Library.Debug.Print("CycleThrowingQuivers()", 0, Debug.DebugColor.Red);
-        if (agent == null || !agent.IsActive())
+        if (agent == null || !agent.IsActive() || ammoQuivers == null || ammoQuivers.Count <= 1)
         {
-            // TaleWorlds.Library.Debug.Print("Agent is null or inactive", 0, Debug.DebugColor.Red);
             return;
         }
 
-        if (ammoQuivers == null || ammoQuivers.Count <= 1)
-        {
-            // TaleWorlds.Library.Debug.Print("ammoQuivers list is invalid or not enough quivers", 0, Debug.DebugColor.Red);
-            return;
-        }
-
-        // TaleWorlds.Library.Debug.Print("CycleThrowingQuivers() step 1", 0, Debug.DebugColor.Red);
         int currentIndex = ammoQuivers.IndexOf((int)wieldedWeaponIndex);
-        int nextIndex = -1;
+        if (currentIndex == -1)
+        {
+            return; // current index isn't in the list
+        }
 
-        // Find the next quiver with ammo
-        for (int i = 1; i <= ammoQuivers.Count; i++)
+        for (int i = 1; i < ammoQuivers.Count; i++)
         {
             int checkIndex = (currentIndex + i) % ammoQuivers.Count;
-            EquipmentIndex checkEquipmentIndex = (EquipmentIndex)ammoQuivers[checkIndex];
-            MissionWeapon checkWeapon = equipment[checkEquipmentIndex];
+            var checkEquipmentIndex = (EquipmentIndex)ammoQuivers[checkIndex];
+            var checkWeapon = equipment[checkEquipmentIndex];
 
             if (!checkWeapon.IsEmpty && checkWeapon.Amount > 0)
             {
-                nextIndex = checkIndex;
-                break;
+                agent.TryToWieldWeaponInSlot(checkEquipmentIndex, Agent.WeaponWieldActionType.WithAnimation, false);
+                return;
             }
-        }
-
-        if (nextIndex >= 0)
-        {
-            EquipmentIndex nextWieldedIndex = (EquipmentIndex)ammoQuivers[nextIndex];
-            agent.TryToWieldWeaponInSlot(nextWieldedIndex, Agent.WeaponWieldActionType.WithAnimation, false);
-            // TaleWorlds.Library.Debug.Print("CycleThrowingQuivers() step 2", 0, Debug.DebugColor.Red);
         }
     }
 
     private void SwapQuivers(Agent agent, MissionEquipment equipment, System.Collections.Generic.List<int> ammoQuivers)
     {
-        if (agent == null || !agent.IsActive())
+        if (agent == null || !agent.IsActive() || ammoQuivers == null || ammoQuivers.Count < 2)
         {
             return;
         }
 
         int count = ammoQuivers.Count;
 
-        if (count == 2)
+        // Cache the original MissionWeapons in order
+        MissionWeapon[] cachedWeapons = new MissionWeapon[count];
+        for (int i = 0; i < count; i++)
         {
-            // Swap between two quivers
-            MissionWeapon firstWeapon = equipment[ammoQuivers[0]];
-            MissionWeapon secondWeapon = equipment[ammoQuivers[1]];
-
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[0], ref secondWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[1], ref firstWeapon);
+            cachedWeapons[i] = equipment[ammoQuivers[i]];
         }
-        else if (count == 3)
-        {
-            // Rotate three quivers
-            MissionWeapon firstWeapon = equipment[ammoQuivers[0]];
-            MissionWeapon secondWeapon = equipment[ammoQuivers[1]];
-            MissionWeapon thirdWeapon = equipment[ammoQuivers[2]];
 
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[0], ref secondWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[1], ref thirdWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[2], ref firstWeapon);
-        }
-        else if (count == 4)
+        // Rotate left: shift each weapon to the previous index
+        for (int i = 0; i < count; i++)
         {
-            // Rotate four quivers
-            MissionWeapon firstWeapon = equipment[ammoQuivers[0]];
-            MissionWeapon secondWeapon = equipment[ammoQuivers[1]];
-            MissionWeapon thirdWeapon = equipment[ammoQuivers[2]];
-            MissionWeapon fourthWeapon = equipment[ammoQuivers[3]];
-
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[0], ref secondWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[1], ref thirdWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[2], ref fourthWeapon);
-            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[3], ref firstWeapon);
+            int fromIndex = (i + 1) % count;
+            agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[i], ref cachedWeapons[fromIndex]);
         }
     }
 

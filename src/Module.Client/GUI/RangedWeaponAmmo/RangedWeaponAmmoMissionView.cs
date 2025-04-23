@@ -88,30 +88,26 @@ internal class RangedWeaponAmmoMissionView : MissionView
     private void OnMissileShot(Agent shooterAgent, EquipmentIndex weaponIndex)
     {
         // _viewModel?.OnMissileShot(shooterAgent, weaponIndex);
-        _viewModel?.UpdateWeaponStatuses();
         _viewModel?.UpdateQuiverImages();
     }
 
     private void OnWieldedItemChanged(EquipmentIndex newWeaponIndex, MissionWeapon missionWeapon)
     {
-        _viewModel?.OnAgentWieldedWeaponChanged(newWeaponIndex, missionWeapon);
+        _viewModel.OnAgentWieldedWeaponChanged(newWeaponIndex, missionWeapon);
     }
 
     private void OnItemDrop(Agent agent, SpawnedItemEntity spawnedItem)
     {
-        _viewModel?.UpdateWeaponStatuses();
         _viewModel?.UpdateQuiverImages();
     }
 
     private void OnItemPickUp(Agent agent, SpawnedItemEntity spawnedItem)
     {
-        _viewModel?.UpdateWeaponStatuses();
         _viewModel?.UpdateQuiverImages();
     }
 
     private void OnAmmoQuiverChanged(Agent agent)
     {
-        _viewModel?.UpdateWeaponStatuses();
         _viewModel?.UpdateQuiverImages();
     }
 }

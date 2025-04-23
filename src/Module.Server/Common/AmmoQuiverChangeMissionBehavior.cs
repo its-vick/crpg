@@ -192,7 +192,7 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
 
     private void HandleAmmoQuiverChange(Agent agent)
     {
-        LogDebug($"MB: AmmoQuiverChangedHandler");
+        LogDebug($"MB: HandleAmmoQuiverChange");
     }
 
     private void HandleCustomServerMessage(CustomServerMessage message)
