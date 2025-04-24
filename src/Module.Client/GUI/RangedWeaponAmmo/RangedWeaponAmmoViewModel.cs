@@ -12,7 +12,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
 {
     // private MissionMultiplayerGameModeBaseClient _gameMode;
     private const int MaxQuiverSlots = 4;
-    private const bool IsDebugEnabled = true;
+    private const bool IsDebugEnabled = false;
 
     private readonly Mission _mission;
     private bool _showQuiverAmmoCount;
@@ -246,7 +246,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         return false;
     }
 
-    public void OnAgentWieldedWeaponChanged(EquipmentIndex weaponIndex, MissionWeapon weapon)
+    public void UpdateWieldedWeapon(EquipmentIndex weaponIndex, MissionWeapon weapon)
     {
         Agent agent = Agent.Main;
         if (agent == null || !agent.IsActive())
@@ -502,6 +502,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 
+    [DataSourceProperty]
     public ImageIdentifierVM QuiverImage0
     {
         get => _quiverImage0;
@@ -515,6 +516,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 
+    [DataSourceProperty]
     public ImageIdentifierVM QuiverImage1
     {
         get => _quiverImage1;
@@ -528,6 +530,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 
+    [DataSourceProperty]
     public ImageIdentifierVM QuiverImage2
     {
         get => _quiverImage2;
@@ -541,6 +544,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         }
     }
 
+    [DataSourceProperty]
     public ImageIdentifierVM QuiverImage3
     {
         get => _quiverImage3;

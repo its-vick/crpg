@@ -292,6 +292,33 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
     }
 
+    public static bool IsAgentWeaponLoaded(Agent agent)
+    {
+        if (agent == null || !agent.IsActive())
+        {
+            return false;
+        }
+
+        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out bool isThrowingWeapon))
+        {
+            return false;
+        }
+
+        ItemObject item = weapon.Item;
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (weapon.AmmoWeapon.IsEmpty || weapon.AmmoWeapon.Item == null)
+        {
+            return false;
+        }
+
+        // has an ammo weapon (arrow drawn or bow/bullet attached)
+        return true;
+    }
+
     private static bool IsAgentRangedWeaponLoadedOrLoading(Agent agent, out bool notRangedWeapon)
     {
         notRangedWeapon = false;

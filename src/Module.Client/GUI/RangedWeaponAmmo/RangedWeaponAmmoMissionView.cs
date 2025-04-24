@@ -2,6 +2,7 @@ using Crpg.Module.Common;
 using TaleWorlds.Core;
 using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.InputSystem;
+using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.View.MissionViews;
 
@@ -21,23 +22,17 @@ internal class RangedWeaponAmmoMissionView : MissionView
     public override void OnMissionScreenInitialize()
     {
         _viewModel = new RangedWeaponAmmoViewModel(Mission);
+
         _weaponChangeBehavior = Mission.GetMissionBehavior<AmmoQuiverChangeMissionBehavior>();
+        if (_weaponChangeBehavior == null)
+        {
+            Debug.Print("AmmoQuiverChangeMissionBehavior not found!");
+            return;
+        }
 
         // Subscribe to mission behavior events
-        _weaponChangeBehavior.OnMissileShot -= OnMissileShot;
-        _weaponChangeBehavior.OnMissileShot += OnMissileShot;
-
-        _weaponChangeBehavior.WieldedItemChanged -= OnWieldedItemChanged;
-        _weaponChangeBehavior.WieldedItemChanged += OnWieldedItemChanged;
-
-        _weaponChangeBehavior.OnItemDrop -= OnItemDrop;
-        _weaponChangeBehavior.OnItemDrop += OnItemDrop;
-
-        _weaponChangeBehavior.OnItemPickUp -= OnItemPickUp;
-        _weaponChangeBehavior.OnItemPickUp += OnItemPickUp;
-
-        _weaponChangeBehavior.OnAmmoQuiverChanged -= OnAmmoQuiverChanged;
-        _weaponChangeBehavior.OnAmmoQuiverChanged += OnAmmoQuiverChanged;
+        _weaponChangeBehavior.OnQuiverEvent -= HandleQuiverEvent;
+        _weaponChangeBehavior.OnQuiverEvent += HandleQuiverEvent;
 
         // Initialize Gauntlet UI layer
         _gauntletLayer = new GauntletLayer(ViewOrderPriority);
@@ -50,11 +45,7 @@ internal class RangedWeaponAmmoMissionView : MissionView
     {
         if (_weaponChangeBehavior != null)
         {
-            _weaponChangeBehavior.OnMissileShot -= OnMissileShot;
-            _weaponChangeBehavior.WieldedItemChanged -= OnWieldedItemChanged;
-            _weaponChangeBehavior.OnItemDrop -= OnItemDrop;
-            _weaponChangeBehavior.OnItemDrop -= OnItemPickUp;
-            _weaponChangeBehavior.OnAmmoQuiverChanged -= OnAmmoQuiverChanged;
+            _weaponChangeBehavior.OnQuiverEvent -= HandleQuiverEvent;
         }
 
         if (_gauntletLayer != null)
@@ -85,29 +76,49 @@ internal class RangedWeaponAmmoMissionView : MissionView
         _viewModel!.Tick(dt);
     }
 
-    private void OnMissileShot(Agent shooterAgent, EquipmentIndex weaponIndex)
+    private void HandleQuiverEvent(AmmoQuiverChangeMissionBehavior.QuiverEventType type, object[] parameters)
     {
-        // _viewModel?.OnMissileShot(shooterAgent, weaponIndex);
-        _viewModel?.UpdateQuiverImages();
-    }
+        string message = string.Empty;
+        switch (type)
+        {
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.AmmoQuiverChanged:
+                _viewModel?.UpdateQuiverImages();
+                message = "AmmoQuiverChanged";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.WieldedItemChanged:
+                _viewModel?.UpdateWieldedWeapon((EquipmentIndex)parameters[0], (MissionWeapon)parameters[1]);
+                _viewModel?.UpdateQuiverImages();
+                message = "WieldedItemChanged";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.ItemDrop:
+                _viewModel?.UpdateQuiverImages();
+                message = "ItemDrop";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.ItemPickup:
+                _viewModel?.UpdateQuiverImages();
+                message = "ItemPickup";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.AgentBuild:
+                _viewModel?.UpdateQuiverImages();
+                message = "AgentBuild";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.AgentRemoved:
+                _viewModel?.UpdateQuiverImages();
+                message = "AgentRemoved";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.AgentChanged:
+                _viewModel?.UpdateQuiverImages();
+                message = "AgentChanged";
+                break;
+            case AmmoQuiverChangeMissionBehavior.QuiverEventType.MissileShot:
+                message = "MissileShot";
+                _viewModel?.UpdateQuiverImages();
+                break;
+            default:
+                message = "default";
+                break;
+        }
 
-    private void OnWieldedItemChanged(EquipmentIndex newWeaponIndex, MissionWeapon missionWeapon)
-    {
-        _viewModel.OnAgentWieldedWeaponChanged(newWeaponIndex, missionWeapon);
-    }
-
-    private void OnItemDrop(Agent agent, SpawnedItemEntity spawnedItem)
-    {
-        _viewModel?.UpdateQuiverImages();
-    }
-
-    private void OnItemPickUp(Agent agent, SpawnedItemEntity spawnedItem)
-    {
-        _viewModel?.UpdateQuiverImages();
-    }
-
-    private void OnAmmoQuiverChanged(Agent agent)
-    {
-        _viewModel?.UpdateQuiverImages();
+        // InformationManager.DisplayMessage(new InformationMessage($"HandleQuiverEvent: {message}"));
     }
 }
