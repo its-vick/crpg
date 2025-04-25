@@ -10,7 +10,6 @@ using TaleWorlds.PlayerServices;
 namespace Crpg.Module.Common;
 internal class AmmoQuiverChangeComponent : MissionNetwork
 {
-    // private AmmoQuiverChangeMissionBehavior? _weaponChangeBehavior;
     private readonly Dictionary<PlayerId, ChangeStatus> _wantsToChangeAmmoQuiver;
     public AmmoQuiverChangeComponent()
     {
@@ -183,35 +182,58 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
                    type == ItemObject.ItemTypeEnum.Thrown;
     }
 
-    public static bool IsQuiverAmmoWeaponForRangedWeapon(MissionWeapon mAmmo, MissionWeapon mWeapon)
+    public static bool IsQuiverAmmoWeaponForRangedWeapon(MissionWeapon ammo, MissionWeapon rangedWeapon)
     {
-        if (mAmmo.IsEmpty || mWeapon.IsEmpty)
+        if (ammo.IsEmpty || rangedWeapon.IsEmpty)
         {
             return false;
         }
 
-        mWeapon.GatherInformationFromWeapon(out bool weaponHasMelee, out bool weaponHasShield, out bool weaponHasPolearm, out bool weaponHasNonConsumableRanged, out bool weaponHasThrown, out WeaponClass rangedAmmoClass);
+        rangedWeapon.GatherInformationFromWeapon(
+            out bool hasMelee, out bool hasShield, out bool hasPolearm,
+            out bool hasNonConsumableRanged, out bool hasThrown,
+            out WeaponClass expectedAmmoClass);
 
-        // check for throwing
-        if (weaponHasThrown && mAmmo.Item != null)
+        // Thrown weapons
+        if (hasThrown && ammo.Item != null && ammo.Item.ItemType == ItemObject.ItemTypeEnum.Thrown)
         {
-            if (mAmmo.Item.ItemType == ItemObject.ItemTypeEnum.Thrown)
-            {
-                return true;
-            }
+            return true;
         }
-        else // not a throwing weapon but a quiver match
-        {
-            WeaponComponentData mAmmoData = mAmmo.GetWeaponComponentDataForUsage(0);
-            WeaponClass mAmmoClass = mAmmoData.WeaponClass;
 
-            if (mAmmoClass == rangedAmmoClass)
-            {
-                return true;
-            }
+        // Regular ranged weapons (bow, crossbow, musket)
+        if (!ammo.IsEmpty && ammo.GetWeaponComponentDataForUsage(0)?.WeaponClass == expectedAmmoClass)
+        {
+            return true;
         }
 
         return false;
+    }
+
+    public static bool IsAgentWeaponLoaded(Agent agent)
+    {
+        if (agent == null || !agent.IsActive())
+        {
+            return false;
+        }
+
+        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out bool isThrowingWeapon))
+        {
+            return false;
+        }
+
+        ItemObject item = weapon.Item;
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (weapon.AmmoWeapon.IsEmpty || weapon.AmmoWeapon.Item == null)
+        {
+            return false;
+        }
+
+        // has an ammo weapon (arrow drawn or bow/bullet attached)
+        return true;
     }
 
     public override void OnBehaviorInitialize()
@@ -265,6 +287,7 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         foreach (var peer in cancelledChanges)
         {
             _wantsToChangeAmmoQuiver.Remove(peer.VirtualPlayer.Id);
+            SendQuiverMessageToClient(peer, QuiverServerMessageAction.QuiverChangeCancelled);
         }
 
         foreach (var peer in pendingChanges)
@@ -273,13 +296,13 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
     }
 
-    public void SendMessageToClient(NetworkCommunicator targetPeer, string message)
+    public void SendQuiverMessageToClient(NetworkCommunicator targetPeer, QuiverServerMessageAction action)
     {
         if (GameNetwork.IsServer)
         {
-            CustomServerMessage serverMessage = new(message);
+            QuiverServerMessage quiverMessage = new(action);
             GameNetwork.BeginModuleEventAsServer(targetPeer);
-            GameNetwork.WriteMessage(serverMessage);
+            GameNetwork.WriteMessage(quiverMessage);
             GameNetwork.EndModuleEventAsServer();
         }
     }
@@ -290,33 +313,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         {
             registerer.Register<ClientRequestAmmoQuiverChange>(HandleClientEventRequestAmmoQuiverChange);
         }
-    }
-
-    public static bool IsAgentWeaponLoaded(Agent agent)
-    {
-        if (agent == null || !agent.IsActive())
-        {
-            return false;
-        }
-
-        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out bool isThrowingWeapon))
-        {
-            return false;
-        }
-
-        ItemObject item = weapon.Item;
-        if (item == null)
-        {
-            return false;
-        }
-
-        if (weapon.AmmoWeapon.IsEmpty || weapon.AmmoWeapon.Item == null)
-        {
-            return false;
-        }
-
-        // has an ammo weapon (arrow drawn or bow/bullet attached)
-        return true;
     }
 
     private static bool IsAgentRangedWeaponLoadedOrLoading(Agent agent, out bool notRangedWeapon)
@@ -502,7 +498,7 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
 
         agent.UpdateWeapons();
-        SendMessageToClient(peer, "AmmoQuiverChanged");
+        SendQuiverMessageToClient(peer, QuiverServerMessageAction.QuiverChangeSuccess);
         /*
         EquipmentIndex ammoIndex = GetEquippedQuiverItemIndex(agent);
         int ammoCount = agent.Equipment[ammoIndex].Ammo;
@@ -598,31 +594,40 @@ internal sealed class ClientRequestAmmoQuiverChange : GameNetworkMessage
     }
 }
 
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class CustomServerMessage : GameNetworkMessage
+public enum QuiverServerMessageAction : int
 {
-    public string Message { get; private set; }
+    None = 0,
+    QuiverChangeSuccess = 1,
+    QuiverChangeCancelled = 2,
+}
 
-    public CustomServerMessage()
+[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
+internal sealed class QuiverServerMessage : GameNetworkMessage
+{
+    private static readonly CompressionInfo.Integer QuiverActionCompression = new CompressionInfo.Integer(0, 10, true);
+
+    public QuiverServerMessageAction Action { get; private set; }
+
+    public QuiverServerMessage()
     {
-        Message = string.Empty; // default value
+        Action = QuiverServerMessageAction.None;
     }
 
-    public CustomServerMessage(string message)
+    public QuiverServerMessage(QuiverServerMessageAction action)
     {
-        Message = message;
+        Action = action;
     }
 
     protected override bool OnRead()
     {
         bool bufferReadValid = true;
-        Message = ReadStringFromPacket(ref bufferReadValid);
+        Action = (QuiverServerMessageAction)ReadIntFromPacket(QuiverActionCompression, ref bufferReadValid);
         return bufferReadValid;
     }
 
     protected override void OnWrite()
     {
-        WriteStringToPacket(Message);
+        WriteIntToPacket((int)Action, QuiverActionCompression);
     }
 
     protected override MultiplayerMessageFilter OnGetLogFilter()
@@ -632,6 +637,6 @@ internal sealed class CustomServerMessage : GameNetworkMessage
 
     protected override string OnGetLogFormat()
     {
-        return "CustomServerMessage: " + Message;
+        return $"QuiverServerMessage - Action: {Action}";
     }
 }

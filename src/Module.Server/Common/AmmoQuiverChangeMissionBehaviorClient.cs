@@ -10,7 +10,7 @@ using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Network.Messages;
 
 namespace Crpg.Module.Common;
-internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
+internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
 {
     public event Action<QuiverEventType, object[]>? OnQuiverEvent;
 
@@ -32,11 +32,11 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
     private readonly GameNetwork.NetworkMessageHandlerRegisterer _networkMessageHandlerRegisterer;
     private MissionTime _lastMissileShotTime = MissionTime.Zero;
 
-    public AmmoQuiverChangeMissionBehavior()
+    public AmmoQuiverChangeMissionBehaviorClient()
     {
         _networkMessageHandlerRegisterer = new GameNetwork.NetworkMessageHandlerRegisterer(GameNetwork.NetworkMessageHandlerRegisterer.RegisterMode.Add);
         _instanceCount++;
-        LogDebug($"AmmoQuiverChangeMissionBehavior instance {_instanceCount} created (Hash: {GetHashCode()})");
+        LogDebug($"AmmoQuiverChangeMissionBehaviorClient instance {_instanceCount} created (Hash: {GetHashCode()})");
     }
 
     public override void OnAgentBuild(Agent agent, Banner banner)
@@ -97,7 +97,7 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
         if (!GameNetwork.IsServer)
         {
             Debug.Print("Registering CustomServerMessage handler on client.", 0, Debug.DebugColor.Green);
-            _networkMessageHandlerRegisterer.Register<CustomServerMessage>(HandleCustomServerMessage);
+            _networkMessageHandlerRegisterer.Register<QuiverServerMessage>(HandleQuiverServerMessage);
         }
 
         if (Mission.Current != null)
@@ -224,13 +224,20 @@ internal class AmmoQuiverChangeMissionBehavior : MissionBehavior
         TriggerQuiverEvent(QuiverEventType.WieldedItemChanged, wieldedWeaponIndex, weapon);
     }
 
-    private void HandleCustomServerMessage(CustomServerMessage message)
+    private void HandleQuiverServerMessage(QuiverServerMessage message)
     {
-        LogDebug($"HandleCustomServerMessage: {message.Message}");
-        if (message.Message == "AmmoQuiverChanged")
+        LogDebug($"HandleQuiverServerMessage: {message.Action}");
+        switch (message.Action)
         {
-            // OnAmmoQuiverChanged?.Invoke(Agent.Main);
-            TriggerQuiverEvent(QuiverEventType.AmmoQuiverChanged);
+            case QuiverServerMessageAction.None:
+
+                break;
+            case QuiverServerMessageAction.QuiverChangeSuccess:
+                TriggerQuiverEvent(QuiverEventType.AmmoQuiverChanged);
+                break;
+            case QuiverServerMessageAction.QuiverChangeCancelled:
+                LogDebug("Quiver Change cancelled by server. (Changed weapons maybe)");
+                break;
         }
     }
 
