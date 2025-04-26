@@ -1,7 +1,6 @@
-using System.Security.Cryptography;
 using Crpg.Module.Common;
-using NetworkMessages.FromServer;
 using TaleWorlds.Core;
+using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.ViewModelCollection;
@@ -69,7 +68,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
             return;
         }
 
-        UpdateWeaponStatuses();
+        // UpdateWeaponStatuses();
     }
 
     public bool UpdateCurrentQuiver(out MissionWeapon ammoWeapon, out ItemObject.ItemTypeEnum currentAmmoType)
@@ -239,9 +238,17 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                 }
             }
         }
+        else
+        {
+            // not ranged weapon
+            if (!CurrentQuiver.IsEqualTo(MissionWeapon.Invalid))
+            {
+                hasChanged = true;
+                UpdateQuiverImages();
+            }
 
-        // not ranged weapon
-        CurrentQuiver = MissionWeapon.Invalid;
+            CurrentQuiver = MissionWeapon.Invalid;
+        }
 
         return false;
     }
@@ -276,12 +283,12 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         Agent agent = Agent.Main;
         if (agent == null)
         {
-            return;
+            // return;
         }
 
         LogDebug("VM: UpdateQuiverImages()");
 
-        if (!agent.IsActive() || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
+        if (agent == null || !agent.IsActive() || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
         {
             QuiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
             QuiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
@@ -327,7 +334,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
         QuiverImage3 = quiverImages[3];
     }
 
-    private void UpdateWeaponStatuses()
+    public void UpdateWeaponStatuses()
     {
         Agent agent = Agent.Main;
         if (agent == null || !agent.IsActive())

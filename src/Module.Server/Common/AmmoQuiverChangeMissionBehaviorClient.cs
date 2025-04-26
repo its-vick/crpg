@@ -1,16 +1,12 @@
 using System.ComponentModel;
-using System.Net.Mail;
-using JetBrains.Annotations;
-using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.Network.Messages;
 
 namespace Crpg.Module.Common;
-internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
+internal class AmmoQuiverChangeMissionBehaviorClient : MissionNetwork
 {
     public event Action<QuiverEventType, object[]>? OnQuiverEvent;
 
@@ -24,19 +20,50 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
         AgentRemoved,
         AgentChanged,
         MissileShot,
+        AgentStatusChanged,
+        AmmoCountIncreased,
+        AmmoCountDecreased,
+        QuiverChangeCancelled,
     }
 
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
     private const bool IsDebugEnabled = false;
-    private static int _instanceCount = 0;
-    private readonly GameNetwork.NetworkMessageHandlerRegisterer _networkMessageHandlerRegisterer;
     private MissionTime _lastMissileShotTime = MissionTime.Zero;
+
+    private bool _wasMainAgentActive = false;
+    private bool _quiverChangeRequested = false;
+    private int _lastKnownTotalAmmo = -1;
 
     public AmmoQuiverChangeMissionBehaviorClient()
     {
-        _networkMessageHandlerRegisterer = new GameNetwork.NetworkMessageHandlerRegisterer(GameNetwork.NetworkMessageHandlerRegisterer.RegisterMode.Add);
-        _instanceCount++;
-        LogDebug($"AmmoQuiverChangeMissionBehaviorClient instance {_instanceCount} created (Hash: {GetHashCode()})");
+    }
+
+    public override void OnMissionTick(float dt)
+    {
+        Agent mainAgent = Agent.Main;
+        bool isActive = mainAgent?.IsActive() == true;
+
+        if (_wasMainAgentActive != isActive)
+        {
+            _wasMainAgentActive = isActive;
+            TriggerQuiverEvent(QuiverEventType.AgentStatusChanged, isActive);
+        }
+
+        if (mainAgent != null && isActive)
+        {
+            int currentAmmo = GetTotalAmmoCount();
+
+            if (currentAmmo > _lastKnownTotalAmmo)
+            {
+                TriggerQuiverEvent(QuiverEventType.AmmoCountIncreased);
+            }
+            else if (currentAmmo < _lastKnownTotalAmmo)
+            {
+                TriggerQuiverEvent(QuiverEventType.AmmoCountDecreased);
+            }
+
+            _lastKnownTotalAmmo = currentAmmo;
+        }
     }
 
     public override void OnAgentBuild(Agent agent, Banner banner)
@@ -58,7 +85,6 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
                 return;
             }
 
-            // Notify listeners (e.g MissionView)
             LogDebug($"MB: OnAgentBuild()");
             TriggerQuiverEvent(QuiverEventType.AgentBuild, banner);
             OnMainAgentWieldedItemChangeHandler();
@@ -76,9 +102,9 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
 
     public override void OnAgentShootMissile(Agent shooterAgent, EquipmentIndex weaponIndex, Vec3 position, Vec3 velocity, Mat3 orientation, bool hasRigidBody, int forcedMissileIndex)
     {
-        // rate limit a bit
         if (shooterAgent == Agent.Main)
         {
+            // rate limit a bit was getting double triggered
             if (MissionTime.Now - _lastMissileShotTime < MissionTime.Seconds(2f / 60f))
             {
                 return;
@@ -94,11 +120,6 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
     public override void OnBehaviorInitialize()
     {
         LogDebug($"MB: OnBehaviorInitialize()");
-        if (!GameNetwork.IsServer)
-        {
-            Debug.Print("Registering CustomServerMessage handler on client.", 0, Debug.DebugColor.Green);
-            _networkMessageHandlerRegisterer.Register<QuiverServerMessage>(HandleQuiverServerMessage);
-        }
 
         if (Mission.Current != null)
         {
@@ -128,19 +149,23 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
             Mission.Current.OnItemPickUp -= OnItemPickupHandler;
         }
 
-        _instanceCount--;
         base.OnRemoveBehavior();
     }
 
     public bool RequestChangeRangedAmmo()
     {
-        LogDebug("RequestChangeRangedAmmo()");
         Agent agent = Agent.Main;
 
         // Check if agent is wielding a weapon that uses quiver. bow xbow or musket
         if (agent == null || !agent.IsActive() || !AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon mWeaponWielded, out bool isThrowingWeapon))
         {
             LogDebug("RequestChangeRangedAmmo(): IsAgentWieldedWeaponRangedUsesQuiver() failed");
+            return false;
+        }
+
+        if (_quiverChangeRequested == true)
+        {
+            LogDebug("RequestChangeRangedAmmo(): Already a request waiting.");
             return false;
         }
 
@@ -158,6 +183,8 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
             GameNetwork.BeginModuleEventAsClient();
             GameNetwork.WriteMessage(new ClientRequestAmmoQuiverChange());
             GameNetwork.EndModuleEventAsClient();
+
+            _quiverChangeRequested = true;
             return true;
         }
         else
@@ -166,6 +193,40 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
         }
 
         return false;
+    }
+
+    public int GetTotalAmmoCount()
+    {
+        Agent agent = Agent.Main;
+        if (agent == null || !agent.IsActive())
+        {
+            return -1;
+        }
+
+        int totalAmmo = 0;
+
+        // Iterate through the agent's equipment
+        for (int i = 0; i < 4; i++)
+        {
+            var eItem = agent.Equipment[i];
+            if (eItem.IsEmpty || eItem.Item == null)
+            {
+                continue;
+            }
+
+            totalAmmo += eItem.Amount;
+        }
+
+        return totalAmmo;
+    }
+
+    protected override void AddRemoveMessageHandlers(GameNetwork.NetworkMessageHandlerRegistererContainer registerer)
+    {
+        if (GameNetwork.IsClient)
+        {
+            base.AddRemoveMessageHandlers(registerer);
+            registerer.Register<QuiverServerMessage>(HandleQuiverServerMessage);
+        }
     }
 
     private void TriggerQuiverEvent(QuiverEventType type, params object[] parameters)
@@ -203,6 +264,8 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
             TriggerQuiverEvent(QuiverEventType.AgentChanged);
 
             OnMainAgentWieldedItemChangeHandler(); // called once when agent changes
+            _lastKnownTotalAmmo = GetTotalAmmoCount();
+            _quiverChangeRequested = false;
         }
     }
 
@@ -233,10 +296,13 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionBehavior
 
                 break;
             case QuiverServerMessageAction.QuiverChangeSuccess:
+                _quiverChangeRequested = false;
                 TriggerQuiverEvent(QuiverEventType.AmmoQuiverChanged);
                 break;
             case QuiverServerMessageAction.QuiverChangeCancelled:
-                LogDebug("Quiver Change cancelled by server. (Changed weapons maybe)");
+                LogDebug("Quiver Change cancelled by server. (Changed weapons with loaded xbow/gun maybe)");
+                _quiverChangeRequested = false;
+                TriggerQuiverEvent(QuiverEventType.QuiverChangeCancelled);
                 break;
         }
     }

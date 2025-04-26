@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Mono.Cecil.Cil;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
@@ -376,79 +374,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         return true;
     }
 
-    /*
-        private int ammoChange = 1;
-        private void ExecuteClientAmmoQuiverChangeSimple(NetworkCommunicator peer)
-        {
-            Agent agent = peer.ControlledAgent;
-
-            if (agent == null || !agent.IsActive())
-            {
-                return;
-            }
-
-            // Check if agent is wielding a weapon that uses quiver. bow xbow or musket
-            if (agent == null || !agent.IsActive() || !AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon mWeaponWielded, out bool isThrowingWeapon))
-            {
-                // LogDebug("RequestChangeRangedAmmo(): IsAgentWieldedWeaponRangedUsesQuiver() failed");
-                return;
-            }
-
-            // check agent quivers
-            if (!AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
-            {
-                // LogDebug("RequestChangeRangedAmmo(): GetAgentQuiversWithAmmoEquippedForWieldedWeapon() failed");
-                return;
-            }
-
-            MissionEquipment equipment = agent.Equipment;
-
-            // try simple switch
-            if (ammoQuivers.Count() > 1)
-            {
-                if (mWeaponWielded.IsEmpty)
-                {
-                    // LogDebug("mWeaponWielded is Empty");
-                    TaleWorlds.Library.Debug.Print("mWeaponWielded is Empty", 0, Debug.DebugColor.Red);
-                    return;
-                }
-
-                if (mWeaponWielded.AmmoWeapon.IsEmpty || mWeaponWielded.AmmoWeapon.Item == null)
-                {
-                    // LogDebug("AmmoWeapon is Empty or Item is null");
-                    TaleWorlds.Library.Debug.Print("AmmoWeapon is Empty or Item is null", 0, Debug.DebugColor.Red);
-                }
-
-                // LogDebug("AmmoWeapon: " + mWeaponWielded.AmmoWeapon.Item.Name);
-                if (ammoChange == 1)
-                {
-                    // LogDebug("AmmoWeapon2: " + mWeaponWielded.AmmoWeapon.Item.Name);
-                    mWeaponWielded.SetAmmo(agent.Equipment[EquipmentIndex.Weapon3]);
-                    // LogDebug("AmmoWeapon: using setAmmo to weapon3");
-                    TaleWorlds.Library.Debug.Print("AmmoWeapon: using setAmmo to weapon3", 0, Debug.DebugColor.Red);
-                    ammoChange = 2;
-                }
-                else
-                {
-                    mWeaponWielded.SetAmmo(agent.Equipment[EquipmentIndex.Weapon2]);
-                    // LogDebug("AmmoWeapon: using setAmmo to weapon2");
-                    TaleWorlds.Library.Debug.Print("AmmoWeapon: using setAmmo to weapon2", 0, Debug.DebugColor.Red);
-                    ammoChange = 1;
-                }
-
-                // Handle the request to change ammo quiver
-                var playerId = peer.VirtualPlayer.Id;
-                if (_wantsToChangeAmmoQuiver.Remove(playerId))
-                {
-                    // If the request exists, we remove it
-                }
-
-                agent.UpdateWeapons();
-
-                return;
-            }
-        }
-    */
     private void ExecuteClientAmmoQuiverChange(NetworkCommunicator peer)
     {
         Agent agent = peer.ControlledAgent;
@@ -604,7 +529,7 @@ public enum QuiverServerMessageAction : int
 [DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
 internal sealed class QuiverServerMessage : GameNetworkMessage
 {
-    private static readonly CompressionInfo.Integer QuiverActionCompression = new CompressionInfo.Integer(0, 10, true);
+    private static readonly CompressionInfo.Integer QuiverActionCompression = new(0, 10, true);
 
     public QuiverServerMessageAction Action { get; private set; }
 

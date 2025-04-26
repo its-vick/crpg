@@ -1,5 +1,6 @@
 using Crpg.Module.Common;
 using TaleWorlds.Core;
+using TaleWorlds.Engine;
 using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
@@ -10,6 +11,7 @@ namespace Crpg.Module.GUI;
 
 internal class RangedWeaponAmmoMissionView : MissionView
 {
+    private const bool IsDebugEnabled = false;
     private RangedWeaponAmmoViewModel _viewModel;
     private AmmoQuiverChangeMissionBehaviorClient? _weaponChangeBehavior;
     private GauntletLayer? _gauntletLayer;
@@ -26,7 +28,7 @@ internal class RangedWeaponAmmoMissionView : MissionView
         _weaponChangeBehavior = Mission.GetMissionBehavior<AmmoQuiverChangeMissionBehaviorClient>();
         if (_weaponChangeBehavior == null)
         {
-            Debug.Print("AmmoQuiverChangeMissionBehaviorClient not found!");
+            LogDebug("AmmoQuiverChangeMissionBehaviorClient not found!");
             return;
         }
 
@@ -82,43 +84,58 @@ internal class RangedWeaponAmmoMissionView : MissionView
         switch (type)
         {
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AmmoQuiverChanged:
-                _viewModel?.UpdateQuiverImages();
                 message = "AmmoQuiverChanged";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.WieldedItemChanged:
                 _viewModel?.UpdateWieldedWeapon((EquipmentIndex)parameters[0], (MissionWeapon)parameters[1]);
-                _viewModel?.UpdateQuiverImages();
                 message = "WieldedItemChanged";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.ItemDrop:
-                _viewModel?.UpdateQuiverImages();
                 message = "ItemDrop";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.ItemPickup:
-                _viewModel?.UpdateQuiverImages();
                 message = "ItemPickup";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AgentBuild:
-                _viewModel?.UpdateQuiverImages();
                 message = "AgentBuild";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AgentRemoved:
-                _viewModel?.UpdateQuiverImages();
                 message = "AgentRemoved";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AgentChanged:
-                _viewModel?.UpdateQuiverImages();
                 message = "AgentChanged";
                 break;
             case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.MissileShot:
                 message = "MissileShot";
-                _viewModel?.UpdateQuiverImages();
+                break;
+            case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AgentStatusChanged:
+                message = "AgentStatusChanged";
+                break;
+            case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AmmoCountIncreased:
+                message = "AmmoCountIncreased";
+                break;
+            case AmmoQuiverChangeMissionBehaviorClient.QuiverEventType.AmmoCountDecreased:
+                message = "AmmoCountDecreased";
                 break;
             default:
                 message = "default";
                 break;
         }
 
-        // InformationManager.DisplayMessage(new InformationMessage($"HandleQuiverEvent: {message}"));
+        _viewModel?.UpdateWeaponStatuses();
+        _viewModel?.UpdateQuiverImages();
+
+        LogDebug($"HandleQuiverEvent: {message}");
+    }
+
+#pragma warning disable CS0162 // Unreachable code if debug disabled
+    private void LogDebug(string message)
+    {
+        if (IsDebugEnabled)
+        {
+            InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
+            Debug.Print(message);
+        }
     }
 }
+#pragma warning restore CS0162
