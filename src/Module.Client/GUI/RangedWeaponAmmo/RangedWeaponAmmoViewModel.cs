@@ -12,12 +12,15 @@ internal class RangedWeaponAmmoViewModel : ViewModel
     // private MissionMultiplayerGameModeBaseClient _gameMode;
     private const int MaxQuiverSlots = 4;
     private const bool IsDebugEnabled = false;
+    private const float MarginRightThrow = 18;
+    private const float MarginRightOther = 80;
 
     private readonly Mission _mission;
     private bool _showQuiverAmmoCount;
     private bool _showQuiverName;
     private bool _isQuiverAmmoCountAlertEnabled;
     private string _quiverName;
+    private float _quiverAmmoCountMarginRight;
 
     private MissionWeapon _wieldedWeapon;
     private MissionWeapon _currentQuiver;
@@ -193,6 +196,8 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                     maxQuiverAmmo = mWeaponWielded.MaxAmmo;
                     ammoWeapon = mWeaponWielded;
                     hasThrowing = true;
+
+                    QuiverAmmoCountMarginRight = MarginRightThrow;
                     return true;
                 }
             }
@@ -226,6 +231,8 @@ internal class RangedWeaponAmmoViewModel : ViewModel
                         activeQuiverAmmo = mWeaponAmmo.Amount;
                         maxQuiverAmmo = mWeaponAmmo.MaxAmmo;
                         ammoWeapon = mWeaponAmmo;
+
+                        QuiverAmmoCountMarginRight = MarginRightOther;
 
                         if (hasChanged)
                         {
@@ -465,6 +472,20 @@ internal class RangedWeaponAmmoViewModel : ViewModel
             if (value != _showQuiverName)
             {
                 _showQuiverName = value;
+                OnPropertyChangedWithValue(value);
+            }
+        }
+    }
+
+    [DataSourceProperty]
+    public float QuiverAmmoCountMarginRight
+    {
+        get => _quiverAmmoCountMarginRight;
+        set
+        {
+            if (value != _quiverAmmoCountMarginRight)
+            {
+                _quiverAmmoCountMarginRight = value;
                 OnPropertyChangedWithValue(value);
             }
         }
