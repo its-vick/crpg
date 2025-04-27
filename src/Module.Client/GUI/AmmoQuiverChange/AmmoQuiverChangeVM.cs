@@ -5,9 +5,9 @@ using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.ViewModelCollection;
 
-namespace Crpg.Module.GUI;
+namespace Crpg.Module.GUI.AmmoQuiverChange;
 
-internal class RangedWeaponAmmoViewModel : ViewModel
+internal class AmmoQuiverChangeVM : ViewModel
 {
     // private MissionMultiplayerGameModeBaseClient _gameMode;
     private const int MaxQuiverSlots = 4;
@@ -32,7 +32,7 @@ internal class RangedWeaponAmmoViewModel : ViewModel
     private ImageIdentifierVM _quiverImage2;
     private ImageIdentifierVM _quiverImage3;
 
-    public RangedWeaponAmmoViewModel(Mission mission)
+    public AmmoQuiverChangeVM(Mission mission)
     {
         _mission = mission;
         _quiverName = string.Empty;

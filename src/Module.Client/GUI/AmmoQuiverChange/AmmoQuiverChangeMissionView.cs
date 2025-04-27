@@ -7,23 +7,23 @@ using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.View.MissionViews;
 
-namespace Crpg.Module.GUI;
+namespace Crpg.Module.GUI.AmmoQuiverChange;
 
-internal class RangedWeaponAmmoMissionView : MissionView
+internal class AmmoQuiverChangeMissionView : MissionView
 {
     private const bool IsDebugEnabled = false;
-    private RangedWeaponAmmoViewModel _viewModel;
+    private AmmoQuiverChangeVM _viewModel;
     private AmmoQuiverChangeMissionBehaviorClient? _weaponChangeBehavior;
     private GauntletLayer? _gauntletLayer;
-    public RangedWeaponAmmoMissionView()
+    public AmmoQuiverChangeMissionView()
     {
-        _viewModel = new RangedWeaponAmmoViewModel(Mission); // Guaranteed non-null
+        _viewModel = new AmmoQuiverChangeVM(Mission); // Guaranteed non-null
         ViewOrderPriority = 2;
     }
 
     public override void OnMissionScreenInitialize()
     {
-        _viewModel = new RangedWeaponAmmoViewModel(Mission);
+        _viewModel = new AmmoQuiverChangeVM(Mission);
 
         _weaponChangeBehavior = Mission.GetMissionBehavior<AmmoQuiverChangeMissionBehaviorClient>();
         if (_weaponChangeBehavior == null)

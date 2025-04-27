@@ -19,6 +19,7 @@ using Crpg.Module.GUI.Commander;
 using Crpg.Module.GUI.Dtv;
 using Crpg.Module.GUI.Spectator;
 using Crpg.Module.GUI.Warmup;
+using Crpg.Module.GUI.AmmoQuiverChange;
 using TaleWorlds.MountAndBlade.Multiplayer.View.MissionViews;
 using TaleWorlds.MountAndBlade.View;
 using TaleWorlds.MountAndBlade.View.MissionViews;
@@ -68,7 +69,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
             new SpectatorHudUiHandler(),
             new WarmupHudUiHandler(),
             new DtvHudUiHandler(),
-            new RangedWeaponAmmoMissionView(),
+            new AmmoQuiverChangeMissionView(),
             MultiplayerViewCreator.CreateMultiplayerMissionDeathCardUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),

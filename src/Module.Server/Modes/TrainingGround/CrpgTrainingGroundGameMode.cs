@@ -12,6 +12,7 @@ using Crpg.Module.Common.ChatCommands;
 #endif
 #if CRPG_CLIENT
 using Crpg.Module.GUI;
+using Crpg.Module.GUI.AmmoQuiverChange;
 using Crpg.Module.GUI.TrainingGround;
 using TaleWorlds.MountAndBlade.Multiplayer;
 using TaleWorlds.MountAndBlade.Multiplayer.View.MissionViews;
@@ -57,6 +58,7 @@ internal class CrpgTrainingGroundGameMode : MissionBasedMultiplayerGameMode
             MultiplayerViewCreator.CreateMissionScoreBoardUIHandler(mission, true),
             MultiplayerViewCreator.CreateLobbyEquipmentUIHandler(),
             new CrpgTrainingGroundUiHandler(),
+            new AmmoQuiverChangeMissionView(), // Ammo Quiver change feature
             MultiplayerViewCreator.CreatePollProgressUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),
@@ -94,6 +96,7 @@ internal class CrpgTrainingGroundGameMode : MissionBasedMultiplayerGameMode
 #if CRPG_CLIENT
                     new CrpgUserManagerClient(), // Needs to be loaded before the Client mission part.
                     new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
+                    new AmmoQuiverChangeMissionBehaviorClient(), // Ammo Quiver change feature
 #endif
                     duelClient,
                     new MultiplayerTimerComponent(), // round timer
@@ -105,6 +108,7 @@ internal class CrpgTrainingGroundGameMode : MissionBasedMultiplayerGameMode
                     new MissionBoundaryPlacer(), // set walkable boundaries
                     new MissionBoundaryCrossingHandler(), // kills agent out of mission boundaries
                     new MultiplayerPollComponent(), // poll logic to kick player, ban player, change game
+                    new AmmoQuiverChangeComponent(), // Ammo Quiver change feature
                     new MissionOptionsComponent(),
                     new CrpgScoreboardComponent(new CrpgTrainingGroundScoreboardData()), // score board
                     new MultiplayerPreloadHelper(),
