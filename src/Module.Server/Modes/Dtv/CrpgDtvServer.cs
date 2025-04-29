@@ -138,7 +138,7 @@ internal class CrpgDtvServer : MissionMultiplayerGameModeBase
             SendDataToPeers(new CrpgDtvVipSpawn { VipAgentIndex = agent.Index });
         }
 
-            // Synchronize health with all clients to make the spectator health bar work.
+        // Synchronize health with all clients to make the spectator health bar work.
         agent.UpdateSyncHealthToAllClients(true);
     }
 
@@ -295,7 +295,7 @@ internal class CrpgDtvServer : MissionMultiplayerGameModeBase
         });
     }
 
-    private void StartNextRound()
+    public void StartNextRound()
     {
         _currentRound += 1;
         _currentWave = -1;

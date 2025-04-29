@@ -149,6 +149,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
                 new DrowningBehavior(),
                 new PopulationBasedEntityVisibilityBehavior(lobbyComponent),
                 new CrpgCommanderBehaviorServer(),
+                new FriendlyHorseChargeServerBehavior(),
 #else
                 new MultiplayerAchievementComponent(),
                 MissionMatchHistoryComponent.CreateIfConditionsAreMet(),
