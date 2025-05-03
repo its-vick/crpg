@@ -70,6 +70,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
             new WarmupHudUiHandler(),
             new DtvHudUiHandler(),
             new AmmoQuiverChangeMissionView(),
+            new VickDebugMissionView(),
             MultiplayerViewCreator.CreateMultiplayerMissionDeathCardUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),

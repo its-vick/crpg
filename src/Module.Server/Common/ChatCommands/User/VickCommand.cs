@@ -1,5 +1,3 @@
-using Mono.Cecil;
-using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.ObjectSystem;
@@ -37,7 +35,7 @@ internal class VickCommand : ChatCommand
     {
         Name = "vick";
         string listarray = string.Join(" ", weaponSetNames);
-        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} equipmentset' ( " + listarray + ")";
+        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} equipmentset' ({listarray}) or \"mode\" to cycle quiver change modes";
         Overloads = new CommandOverload[]
         {
             new(new[] { ChatCommandParameterType.String }, ExecuteSuccess),
@@ -47,19 +45,30 @@ internal class VickCommand : ChatCommand
     private void ExecuteSuccess(NetworkCommunicator fromPeer, object[] arguments)
     {
         string message = (string)arguments[0];
+
+        // Change QuiverChangeMode in AmmoQuiverChangeComponent
+        if (message == "mode")
+        {
+            AmmoQuiverChangeComponent.CycleQuiverChangeMode();
+            string outmessage = $"QuiverChangeMode set to: {AmmoQuiverChangeComponent.QuiverChangeMode}";
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
+            return;
+        }
+
+        // Change equipment for plaeyr
         int index = Array.IndexOf(weaponSetNames, message);
 
         if (index >= 0)
         {
-            string outmessage = "Equipment Changed: " + message + " index: " + index;
+            string outmessage = $"Equipment set changed: {message} index: {index}";
             ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
         }
         else
         {
-            string outmessage = "Equipment set not found: " + message;
+            string outmessage = $"Equipment set not found: {message}";
             ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal, outmessage);
             index = 0;
-            outmessage = "Using Default Set.";
+            outmessage = $"Using Default Set: {weaponSetNames[0]} index: {index}";
             ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
         }
 

@@ -1,0 +1,22 @@
+<Prefab>
+  <Window>
+    <Widget WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10" MarginBottom="250">
+      <Children>
+        <ListPanel WidthSizePolicy="CoverChildren" HeightSizePolicy="CoverChildren" StackLayout.LayoutMethod="VerticalTopToBottom">
+          <Children>
+            <TextWidget Id="Debug0" Text="@DebugText0" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug1" Text="@DebugText1" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug2" Text="@DebugText2" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug3" Text="@DebugText3" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug4" Text="@DebugText4" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug5" Text="@DebugText5" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug6" Text="@DebugText6" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug7" Text="@DebugText7" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug8" Text="@DebugText8" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+            <TextWidget Id="Debug9" Text="@DebugText9" WidthSizePolicy="Fixed" HeightSizePolicy="Fixed" SuggestedWidth="1000" SuggestedHeight="30" MarginBottom="0" FontSize="24"/>
+          </Children>
+        </ListPanel>
+      </Children>
+    </Widget>
+  </Window>
+</Prefab>

@@ -1,9 +1,11 @@
 using System.ComponentModel;
+using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
+using static Crpg.Module.Common.AmmoQuiverChangeComponent;
 
 namespace Crpg.Module.Common;
 internal class AmmoQuiverChangeMissionBehaviorClient : MissionNetwork
@@ -27,7 +29,7 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionNetwork
     }
 
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
-    private const bool IsDebugEnabled = false;
+    private const bool IsDebugEnabled = true;
     private MissionTime _lastMissileShotTime = MissionTime.Zero;
 
     private bool _wasMainAgentActive = false;
@@ -152,12 +154,25 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionNetwork
         base.OnRemoveBehavior();
     }
 
+    public void SendQuiverMessageToServer(QuiverClientMessageAction action)
+    {
+        if (GameNetwork.IsClient)
+        {
+            QuiverClientMessage quiverMessage = new(action);
+
+            GameNetwork.BeginModuleEventAsClient();
+            GameNetwork.WriteMessage(quiverMessage);
+            GameNetwork.EndModuleEventAsClient();
+        }
+    }
+
     public bool RequestChangeRangedAmmo()
     {
         Agent agent = Agent.Main;
 
         // Check if agent is wielding a weapon that uses quiver. bow xbow or musket
-        if (agent == null || !agent.IsActive() || !AmmoQuiverChangeComponent.IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon mWeaponWielded, out bool isThrowingWeapon))
+        if (agent == null || !agent.IsActive() ||
+            !IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
         {
             LogDebug("RequestChangeRangedAmmo(): IsAgentWieldedWeaponRangedUsesQuiver() failed");
             return false;
@@ -170,29 +185,55 @@ internal class AmmoQuiverChangeMissionBehaviorClient : MissionNetwork
         }
 
         // check agent quivers
-        if (!AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
+        if (!GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
         {
             LogDebug("RequestChangeRangedAmmo(): GetAgentQuiversWithAmmoEquippedForWieldedWeapon() failed");
             return false;
         }
 
-        // multiple quivers with ammo found
-        if (ammoQuivers.Count > 1)
+        // not enough quivers with ammo found
+        if (ammoQuivers.Count < 2)
         {
-            LogDebug("RequestChangeRangedAmmo() Quivers Found: " + ammoQuivers.Count);
-            GameNetwork.BeginModuleEventAsClient();
-            GameNetwork.WriteMessage(new ClientRequestAmmoQuiverChange());
-            GameNetwork.EndModuleEventAsClient();
-
-            _quiverChangeRequested = true;
-            return true;
-        }
-        else
-        {
-            LogDebug("RequestChangeRangedAmmo(): Only one or no quiver with ammo found, no change needed");
+            LogDebug("RequestChangeRangedAmmo(): Only one or no quiver with ammo found, no change possible");
+            return false;
         }
 
-        return false;
+        if (!wieldedWeapon.IsEmpty &&
+            !wieldedWeapon.IsEqualTo(MissionWeapon.Invalid) &&
+            wieldedWeapon.Item is { } weaponItem)
+        {
+            if (QuiverChangeMode == QuiverChangeModeEnum.ConditionsMet)
+            {
+                switch (weaponItem.Type)
+                {
+                    case ItemObject.ItemTypeEnum.Bow when wieldedWeapon.ReloadPhase > 0:
+                    case ItemObject.ItemTypeEnum.Crossbow when wieldedWeapon.ReloadPhase > 1:
+                    case ItemObject.ItemTypeEnum.Musket when wieldedWeapon.ReloadPhase > 0:
+                        LogDebug($"RequestChangeRangedAmmo(): reloadphase ineligible condition for {weaponItem.Name} ({wieldedWeapon.ReloadPhase})");
+                        return false;
+                }
+            }
+
+            if (QuiverChangeMode == QuiverChangeModeEnum.Forced)
+            {
+                switch (weaponItem.Type)
+                {
+                    case ItemObject.ItemTypeEnum.Crossbow when wieldedWeapon.ReloadPhase == 2:
+                        LogDebug($"RequestChangeRangedAmmo() Bolt is already loaded in {wieldedWeapon.Item.Name}.");
+                        return false;
+
+                    case ItemObject.ItemTypeEnum.Musket when wieldedWeapon.ReloadPhase == 1:
+                        LogDebug($"RequestChangeRangedAmmo() Bullet is already loaded in {wieldedWeapon.Item.Name}.");
+                        return false;
+                }
+            }
+        }
+
+        LogDebug("RequestChangeRangedAmmo() Quivers Found: " + ammoQuivers.Count);
+        SendQuiverMessageToServer(QuiverClientMessageAction.QuiverChangeRequest);
+
+        _quiverChangeRequested = true;
+        return true;
     }
 
     public int GetTotalAmmoCount()
