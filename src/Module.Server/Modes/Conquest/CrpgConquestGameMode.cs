@@ -1,4 +1,5 @@
 ﻿using Crpg.Module.Common;
+using Crpg.Module.Common.AmmoQuiverChange;
 using Crpg.Module.Common.Commander;
 using Crpg.Module.Common.TeamSelect;
 using Crpg.Module.Modes.Siege;
@@ -69,7 +70,7 @@ internal class CrpgConquestGameMode : MissionBasedMultiplayerGameMode
             new SpectatorHudUiHandler(),
             new WarmupHudUiHandler(),
             new ConquestHudUiHandler(),
-            new AmmoQuiverChangeMissionView(),
+            new AmmoQuiverChangeUiHandler(),
             MultiplayerViewCreator.CreateMultiplayerMissionDeathCardUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),
@@ -115,7 +116,7 @@ internal class CrpgConquestGameMode : MissionBasedMultiplayerGameMode
                 new MultiplayerMissionAgentVisualSpawnComponent(),
                 new CrpgCommanderBehaviorClient(),
                 new CrpgRespawnTimerClient(),
-                new AmmoQuiverChangeMissionBehaviorClient(),
+                new AmmoQuiverChangeBehaviorClient(),
 #endif
                 warmupComponent,
                 new CrpgConquestClient(),

@@ -1,4 +1,6 @@
+using Crpg.Module.Common.AmmoQuiverChange;
 using TaleWorlds.Core;
+using TaleWorlds.Engine;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.ObjectSystem;
 
@@ -73,8 +75,6 @@ internal class VickCommand : ChatCommand
         }
 
         EquipWeaponsToPlayer(fromPeer, index);
-
-        Agent agent = fromPeer.ControlledAgent;
     }
 
     private void EquipWeaponsToPlayer(NetworkCommunicator fromPeer, int index)

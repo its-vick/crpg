@@ -9,7 +9,7 @@ namespace Crpg.Module.GUI;
 public class VickDebugMissionView : MissionView
 {
     private GauntletLayer? _gauntletLayer;
-    private VickDebugVM? _viewModel;
+    private VickDebugVM? _dataSource;
 
     public VickDebugMissionView()
     {
@@ -44,7 +44,7 @@ public class VickDebugMissionView : MissionView
 
         if (GameNetwork.IsClient && _gauntletLayer != null)
         {
-            _viewModel?.Tick(dt);
+            _dataSource?.Tick(dt);
         }
         else
         {
@@ -60,10 +60,10 @@ public class VickDebugMissionView : MissionView
             _gauntletLayer = null;
         }
 
-        if (_viewModel != null)
+        if (_dataSource != null)
         {
-            _viewModel.OnFinalize();
-            _viewModel = null;
+            _dataSource.OnFinalize();
+            _dataSource = null;
         }
 
         base.OnMissionScreenFinalize();
@@ -73,9 +73,9 @@ public class VickDebugMissionView : MissionView
     {
         try
         {
-            _viewModel = new VickDebugVM(Mission);
+            _dataSource = new VickDebugVM(Mission);
             _gauntletLayer = new GauntletLayer(ViewOrderPriority);
-            _gauntletLayer.LoadMovie("VickDebugHud", _viewModel);
+            _gauntletLayer.LoadMovie("VickDebugHud", _dataSource);
             MissionScreen.AddLayer(_gauntletLayer);
             InformationManager.DisplayMessage(new InformationMessage("[VickDebug] UI Initialized", Colors.Green));
         }

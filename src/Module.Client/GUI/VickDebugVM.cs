@@ -1,4 +1,4 @@
-using Crpg.Module.Common;
+using Crpg.Module.Common.AmmoQuiverChange;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
@@ -153,6 +153,11 @@ internal class VickDebugVM : ViewModel
 
         wieldedIndex = agent.GetWieldedItemIndex(Agent.HandIndex.MainHand);
         wieldedWeapon = agent.Equipment[wieldedIndex];
+
+        if (wieldedWeapon.IsEmpty || wieldedWeapon.IsEqualTo(MissionWeapon.Invalid))
+        {
+            return false;
+        }
 
         return true;
     }

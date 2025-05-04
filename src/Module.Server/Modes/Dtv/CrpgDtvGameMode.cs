@@ -1,4 +1,5 @@
 using Crpg.Module.Common;
+using Crpg.Module.Common.AmmoQuiverChange;
 using Crpg.Module.Common.Commander;
 using Crpg.Module.Common.TeamSelect;
 using Crpg.Module.Modes.Warmup;
@@ -69,7 +70,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
             new SpectatorHudUiHandler(),
             new WarmupHudUiHandler(),
             new DtvHudUiHandler(),
-            new AmmoQuiverChangeMissionView(),
+            new AmmoQuiverChangeUiHandler(),
             new VickDebugMissionView(),
             MultiplayerViewCreator.CreateMultiplayerMissionDeathCardUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
@@ -117,7 +118,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
                 new CrpgUserManagerClient(), // Needs to be loaded before the Client mission part.
                 new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
                 new CrpgCommanderBehaviorClient(),
-                new AmmoQuiverChangeMissionBehaviorClient(),
+                new AmmoQuiverChangeBehaviorClient(),
 #endif
                 dtvClient,
                 new MultiplayerTimerComponent(), // round timer

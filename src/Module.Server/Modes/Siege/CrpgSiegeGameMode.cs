@@ -1,4 +1,5 @@
 using Crpg.Module.Common;
+using Crpg.Module.Common.AmmoQuiverChange;
 using Crpg.Module.Modes.Warmup;
 using Crpg.Module.Notifications;
 using Crpg.Module.Rewards;
@@ -60,7 +61,7 @@ internal class CrpgSiegeGameMode : MissionBasedMultiplayerGameMode
             new MissionAgentContourControllerView(),
             MultiplayerViewCreator.CreateMissionKillNotificationUIHandler(),
             new CrpgHudExtensionHandler(),
-            new AmmoQuiverChangeMissionView(),
+            new AmmoQuiverChangeUiHandler(),
             MultiplayerViewCreator.CreateMultiplayerMissionDeathCardUIHandler(),
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),
@@ -100,7 +101,7 @@ internal class CrpgSiegeGameMode : MissionBasedMultiplayerGameMode
 #if CRPG_CLIENT
                 new CrpgUserManagerClient(), // Needs to be loaded before the Client mission part.
                 new MultiplayerMissionAgentVisualSpawnComponent(),
-                new AmmoQuiverChangeMissionBehaviorClient(),
+                new AmmoQuiverChangeBehaviorClient(),
 #endif
                 warmupComponent,
                 siegeClient,

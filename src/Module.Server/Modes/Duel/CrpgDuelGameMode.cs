@@ -1,4 +1,5 @@
 ﻿using Crpg.Module.Common;
+using Crpg.Module.Common.AmmoQuiverChange;
 using Crpg.Module.Notifications;
 using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
@@ -60,7 +61,7 @@ internal class CrpgDuelGameMode : MissionBasedMultiplayerGameMode
             ViewCreator.CreateOptionsUIHandler(),
             ViewCreator.CreateMissionMainAgentEquipDropView(mission),
             ViewCreator.CreateMissionBoundaryCrossingView(),
-            new AmmoQuiverChangeMissionView(),
+            new AmmoQuiverChangeUiHandler(),
             new MissionBoundaryWallView(),
             new MissionItemContourControllerView(),
             new MissionAgentContourControllerView(),
@@ -94,7 +95,7 @@ internal class CrpgDuelGameMode : MissionBasedMultiplayerGameMode
 #if CRPG_CLIENT
                     new CrpgUserManagerClient(), // Needs to be loaded before the Client mission part.
                     new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
-                    new AmmoQuiverChangeMissionBehaviorClient(),
+                    new AmmoQuiverChangeBehaviorClient(),
 #endif
                     duelClient,
                     new MultiplayerTimerComponent(), // round timer

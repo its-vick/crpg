@@ -7,7 +7,7 @@ using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Network.Messages;
 using TaleWorlds.PlayerServices;
 
-namespace Crpg.Module.Common;
+namespace Crpg.Module.Common.AmmoQuiverChange;
 internal class AmmoQuiverChangeComponent : MissionNetwork
 {
     public enum QuiverChangeModeEnum
@@ -33,80 +33,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
                item.Type == ItemObject.ItemTypeEnum.Bolts ||
                item.Type == ItemObject.ItemTypeEnum.Bullets ||
                item.Type == ItemObject.ItemTypeEnum.Thrown);
-    }
-
-    public static bool GetCurrentQuiver(Agent agent, out MissionWeapon quiverWeapon, out EquipmentIndex quiverIndex)
-    {
-        quiverWeapon = MissionWeapon.Invalid;
-        quiverIndex = EquipmentIndex.None;
-
-        if (agent == null || !agent.IsActive())
-        {
-            return false;
-        }
-
-        EquipmentIndex wieldedItemIndex = agent.GetWieldedItemIndex(Agent.HandIndex.MainHand);
-        MissionWeapon wieldedWeapon = MissionWeapon.Invalid;
-
-        if (wieldedItemIndex == EquipmentIndex.None)
-        {
-            return false;
-        }
-
-        wieldedWeapon = agent.Equipment[wieldedItemIndex];
-        if (wieldedWeapon.IsEmpty || wieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || wieldedWeapon.Item == null)
-        {
-            return false;
-        }
-
-        if (!GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
-        {
-            return false;
-        }
-
-        if (wieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown)
-        {
-            quiverWeapon = wieldedWeapon;
-            quiverIndex = wieldedItemIndex;
-        }
-        else
-        {
-            if (ammoQuivers.Count <= 0)
-            {
-                return false;
-            }
-
-            quiverWeapon = agent.Equipment[ammoQuivers[0]];
-            quiverIndex = (EquipmentIndex)ammoQuivers[0];
-        }
-
-        return true;
-    }
-
-    public static bool GetAgentQuiversEquipped(Agent agent, out List<int> ammoQuivers)
-    {
-        // List to store quiver indexes
-        ammoQuivers = new System.Collections.Generic.List<int>();
-
-        if (agent == null || !agent.IsActive())
-        {
-            return false;
-        }
-
-        MissionEquipment equipment = agent.Equipment;
-
-        // Loop through equipment and find quivers
-        for (int i = 0; i < 4; i++)
-        {
-            var item = equipment[i].Item;
-            // Check if item is a quiver and not empty
-            if (item != null && !equipment[i].IsEmpty && IsQuiverItem(item))
-            {
-                ammoQuivers.Add(i);
-            }
-        }
-
-        return true;
     }
 
     public static bool GetAgentQuiversWithAmmoEquippedForWieldedWeapon(Agent agent, out List<int> ammoQuivers)
@@ -217,72 +143,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         }
 
         return false;
-    }
-
-    public static bool IsAgentWeaponLoaded(Agent agent)
-    {
-        if (agent == null || !agent.IsActive())
-        {
-            return false;
-        }
-
-        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out bool isThrowingWeapon))
-        {
-            return false;
-        }
-
-        ItemObject item = weapon.Item;
-        if (item == null)
-        {
-            return false;
-        }
-
-        if (weapon.AmmoWeapon.IsEmpty || weapon.AmmoWeapon.Item == null)
-        {
-            return false;
-        }
-
-        // has an ammo weapon (arrow drawn or bow/bullet attached)
-        return true;
-    }
-
-    public static bool IsWeaponStateAbleChangeAmmo(MissionWeapon weapon)
-    {
-        if (weapon.IsEmpty || weapon.Equals(MissionWeapon.Invalid) || weapon.Item == null)
-        {
-            return false;
-        }
-
-        switch (weapon.Item.Type)
-        {
-            case ItemObject.ItemTypeEnum.Bow:
-                if (weapon.ReloadPhase > 0)
-                {
-                    return false;
-                }
-
-                break;
-            case ItemObject.ItemTypeEnum.Crossbow:
-                if (weapon.ReloadPhase > 1)
-                {
-                    return false;
-                }
-
-                break;
-            case ItemObject.ItemTypeEnum.Musket:
-                if (weapon.ReloadPhase > 0)
-                {
-                    return false;
-                }
-
-                break;
-            case ItemObject.ItemTypeEnum.Thrown:
-                {
-                    return true;
-                }
-        }
-
-        return true;
     }
 
     public static void CycleQuiverChangeMode()
@@ -613,100 +473,5 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
     private struct ChangeStatus
     {
         public bool AmmoChangeRequested { get; set; }
-    }
-}
-
-// Handle Network Message
-public enum QuiverClientMessageAction : int
-{
-    None = 0,
-    QuiverChangeRequest = 1,
-    QuiverCancelReload = 2,
-}
-
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromClient)]
-internal sealed class QuiverClientMessage : GameNetworkMessage
-{
-    private static readonly CompressionInfo.Integer QuiverActionCompression = new(0, 10, true);
-    public QuiverClientMessageAction Action { get; private set; }
-
-    public QuiverClientMessage()
-    {
-        Action = QuiverClientMessageAction.None;
-    }
-
-    public QuiverClientMessage(QuiverClientMessageAction action)
-    {
-        Action = action;
-    }
-
-    protected override bool OnRead()
-    {
-        bool bufferReadValid = true;
-        Action = (QuiverClientMessageAction)ReadIntFromPacket(QuiverActionCompression, ref bufferReadValid);
-        return bufferReadValid;
-    }
-
-    protected override void OnWrite()
-    {
-        WriteIntToPacket((int)Action, QuiverActionCompression);
-    }
-
-    protected override MultiplayerMessageFilter OnGetLogFilter()
-    {
-        return MultiplayerMessageFilter.General;
-    }
-
-    protected override string OnGetLogFormat()
-    {
-        return $"QuiverClientMessage - Action: {Action}";
-    }
-}
-
-public enum QuiverServerMessageAction : int
-{
-    None = 0,
-    QuiverChangeSuccess = 1,
-    QuiverChangeCancelled = 2,
-    UpdateQuiverChangeMode = 3,
-}
-
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class QuiverServerMessage : GameNetworkMessage
-{
-    private static readonly CompressionInfo.Integer QuiverActionCompression = new(0, 10, true);
-
-    public QuiverServerMessageAction Action { get; private set; }
-
-    public QuiverServerMessage()
-    {
-        Action = QuiverServerMessageAction.None;
-    }
-
-    public QuiverServerMessage(QuiverServerMessageAction action)
-    {
-        Action = action;
-    }
-
-    protected override bool OnRead()
-    {
-        bool bufferReadValid = true;
-        Action = (QuiverServerMessageAction)ReadIntFromPacket(QuiverActionCompression, ref bufferReadValid);
-        return bufferReadValid;
-    }
-
-    protected override void OnWrite()
-    {
-        WriteIntToPacket((int)Action, QuiverActionCompression);
-    }
-
-    protected override MultiplayerMessageFilter OnGetLogFilter()
-    {
-        return MultiplayerMessageFilter.General;
-    }
-
-    protected override string OnGetLogFormat()
-    {
-        return $"QuiverServerMessage - Action: {Action}";
     }
 }
