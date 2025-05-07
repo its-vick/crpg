@@ -9,7 +9,6 @@ namespace Crpg.Module.GUI.AmmoQuiverChange;
 
 internal class AmmoQuiverChangeUiHandler : MissionView
 {
-    private const bool IsDebugEnabled = false;
     private AmmoQuiverChangeVm _dataSource;
     private AmmoQuiverChangeBehaviorClient? _weaponChangeBehavior;
     private GauntletLayer? _gauntletLayer;
@@ -22,16 +21,14 @@ internal class AmmoQuiverChangeUiHandler : MissionView
     public override void OnMissionScreenInitialize()
     {
         _dataSource = new AmmoQuiverChangeVm(Mission);
-
         _weaponChangeBehavior = Mission.GetMissionBehavior<AmmoQuiverChangeBehaviorClient>();
+
         if (_weaponChangeBehavior == null)
         {
-            LogDebug("AmmoQuiverChangeBehaviorClient not found!");
             return;
         }
 
         // Subscribe to mission behavior events
-        // _weaponChangeBehavior.OnQuiverEvent -= HandleQuiverEvent;
         _weaponChangeBehavior.OnQuiverEvent += HandleQuiverEvent;
 
         // Initialize Gauntlet UI layer
@@ -84,20 +81,5 @@ internal class AmmoQuiverChangeUiHandler : MissionView
         }
 
         _dataSource?.UpdateWeaponStatuses();
-        // _dataSource?.UpdateQuiverImages();
-
-        string message = type.ToString();
-        LogDebug($"HandleQuiverEvent: {message}");
-    }
-
-#pragma warning disable CS0162 // Unreachable code if debug disabled
-    private void LogDebug(string message)
-    {
-        if (IsDebugEnabled)
-        {
-            InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
-            Debug.Print(message);
-        }
     }
 }
-#pragma warning restore CS0162

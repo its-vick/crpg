@@ -90,7 +90,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
 
         if (!agent.GetWieldedWeaponInfo(Agent.HandIndex.MainHand).IsRangedWeapon) // is ranged weapon
         {
-            // TaleWorlds.Library.Debug.Print("IsAgentWieldedWeaponRangedUsesQuiver.IsRangedWeapon failed", 0, Debug.DebugColor.Red);
             return false;
         }
 
@@ -195,8 +194,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
                 ammoQuivers.Add(i);
             }
         }
-
-        // TaleWorlds.Library.Debug.Print(" execQuiverChange: ammoQuivers.Count: " + ammoQuivers.Count, 0, Debug.DebugColor.Red);
 
         // If there are more than 1 quivers, perform swaps
         if (ammoQuivers.Count < 2)
