@@ -1,15 +1,13 @@
 using Crpg.Module.Common.AmmoQuiverChange;
 using TaleWorlds.Core;
-using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.ViewModelCollection;
 
 namespace Crpg.Module.GUI.AmmoQuiverChange;
 
 internal class AmmoQuiverChangeVm : ViewModel
 {
-    private const bool IsDebugEnabled = false;
+    private const bool IsDebugEnabled = true;
     private const float MarginRightThrow = 18;
     private const float MarginRightOther = 80;
 
@@ -88,7 +86,7 @@ internal class AmmoQuiverChangeVm : ViewModel
             if (!CurrentQuiver.IsEqualTo(MissionWeapon.Invalid))
             {
                 hasChanged = true;
-                UpdateQuiverImages();
+                // UpdateQuiverImages();
             }
 
             CurrentQuiver = MissionWeapon.Invalid;
@@ -168,7 +166,7 @@ internal class AmmoQuiverChangeVm : ViewModel
             if (hasChanged)
             {
                 LogDebug("VM: hasChanged=true in GetCurrentQuiverAmmoAmount");
-                UpdateQuiverImages();
+                // UpdateQuiverImages();
             }
 
             return true;
@@ -197,7 +195,7 @@ internal class AmmoQuiverChangeVm : ViewModel
             WieldedWeapon = MissionWeapon.Invalid;
         }
 
-        UpdateQuiverImages();
+        // UpdateQuiverImages();
 
         LogDebug($"VM: onAgentWieldedWeaponChanged: {weaponName} Ranged: {RangedWeaponEquipped})");
     }
@@ -261,6 +259,7 @@ internal class AmmoQuiverChangeVm : ViewModel
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
+            UpdateQuiverImages();
             return;
         }
 

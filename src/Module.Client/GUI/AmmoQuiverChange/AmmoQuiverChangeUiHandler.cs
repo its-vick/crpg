@@ -1,8 +1,6 @@
 using Crpg.Module.Common.AmmoQuiverChange;
 using TaleWorlds.Core;
-using TaleWorlds.Engine;
 using TaleWorlds.Engine.GauntletUI;
-using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.View.MissionViews;
@@ -33,7 +31,7 @@ internal class AmmoQuiverChangeUiHandler : MissionView
         }
 
         // Subscribe to mission behavior events
-        _weaponChangeBehavior.OnQuiverEvent -= HandleQuiverEvent;
+        // _weaponChangeBehavior.OnQuiverEvent -= HandleQuiverEvent;
         _weaponChangeBehavior.OnQuiverEvent += HandleQuiverEvent;
 
         // Initialize Gauntlet UI layer
@@ -86,7 +84,7 @@ internal class AmmoQuiverChangeUiHandler : MissionView
         }
 
         _dataSource?.UpdateWeaponStatuses();
-        _dataSource?.UpdateQuiverImages();
+        // _dataSource?.UpdateQuiverImages();
 
         string message = type.ToString();
         LogDebug($"HandleQuiverEvent: {message}");

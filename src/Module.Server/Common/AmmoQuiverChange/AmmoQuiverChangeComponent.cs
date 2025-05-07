@@ -1,29 +1,11 @@
-using JetBrains.Annotations;
-using psai.Editor;
 using TaleWorlds.Core;
-using TaleWorlds.Library;
-using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.Network.Messages;
-using TaleWorlds.PlayerServices;
 
 namespace Crpg.Module.Common.AmmoQuiverChange;
 internal class AmmoQuiverChangeComponent : MissionNetwork
 {
-    public enum QuiverChangeModeEnum
-    {
-        None = 0,
-        ConditionsMet = 1, // only changes ammo if conditions are right when you press the button. doesnt interrupt animations
-        Queued = 2, // changes ammo quiver after shot, unless conditions were right when you pressed the button. Cancels if u change weapons. doesnt interrupt animations
-        Forced = 3, // forces quiver change when you press the button, Unless xbow or gun is already loaded in which case doesnt work. Works later in reload phases than conditionsMet
-    }
-
-    public static QuiverChangeModeEnum QuiverChangeMode { get; set; } = QuiverChangeModeEnum.Forced;
-
-    private readonly Dictionary<PlayerId, ChangeStatus> _wantsToChangeAmmoQuiver;
     public AmmoQuiverChangeComponent()
     {
-        _wantsToChangeAmmoQuiver = new Dictionary<PlayerId, ChangeStatus>();
     }
 
     public static bool IsQuiverItem(ItemObject item)
@@ -145,31 +127,6 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
         return false;
     }
 
-    public static void CycleQuiverChangeMode()
-    {
-        int nextMode = ((int)QuiverChangeMode + 1) % 3; // Assumes 3 valid values (1–3)
-        QuiverChangeMode = (QuiverChangeModeEnum)(nextMode + 1); // Skip 'None' (0)
-
-        if (GameNetwork.IsServer)
-        {
-            foreach (NetworkCommunicator peer in GameNetwork.NetworkPeers)
-            {
-                SendQuiverMessageToClient(peer, QuiverServerMessageAction.UpdateQuiverChangeMode);
-            }
-        }
-    }
-
-    public static void SendQuiverMessageToClient(NetworkCommunicator targetPeer, QuiverServerMessageAction action)
-    {
-        if (GameNetwork.IsServer)
-        {
-            QuiverServerMessage quiverMessage = new(action);
-            GameNetwork.BeginModuleEventAsServer(targetPeer);
-            GameNetwork.WriteMessage(quiverMessage);
-            GameNetwork.EndModuleEventAsServer();
-        }
-    }
-
     public override void OnBehaviorInitialize()
     {
         base.OnBehaviorInitialize();
@@ -178,162 +135,20 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
     public override void OnMissionTick(float dt)
     {
         base.OnMissionTick(dt);
-
-        if (QuiverChangeMode == QuiverChangeModeEnum.Queued)
-        {
-            ProcessQueueTick(dt);
-        }
     }
 
     protected override void AddRemoveMessageHandlers(GameNetwork.NetworkMessageHandlerRegistererContainer registerer)
     {
         if (GameNetwork.IsServer)
         {
-            registerer.Register<QuiverClientMessage>((msg, peer) => HandleQuiverClientMessage(msg, peer));
-        }
-        else if (GameNetwork.IsClient)
-        {
-            registerer.Register<QuiverServerMessage>(HandleQuiverServerMessage);
+            registerer.Register<AmmoQuiverChangeRequestClientMessage>((msg, peer) => HandleQuiverClientMessage(msg, peer));
         }
     }
 
-    private static bool IsAgentRangedWeaponLoadedOrLoading(Agent agent, out bool notRangedWeapon)
+    private bool HandleQuiverClientMessage(NetworkCommunicator peer, AmmoQuiverChangeRequestClientMessage message)
     {
-        notRangedWeapon = false;
-
-        if (agent == null || !agent.IsActive())
-        {
-            return false;
-        }
-
-        if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out _, out MissionWeapon weapon, out _))
-        {
-            notRangedWeapon = true;
-            return false;
-        }
-
-        var item = weapon.Item;
-        if (item == null)
-        {
-            return false;
-        }
-
-        var type = item.Type;
-
-        // Bows: check reload phase
-        if (type == ItemObject.ItemTypeEnum.Bow)
-        {
-            return weapon.ReloadPhase != 0;
-        }
-
-        // Crossbows & Muskets: check reload animation or reload phase
-        if (type == ItemObject.ItemTypeEnum.Crossbow || type == ItemObject.ItemTypeEnum.Musket)
-        {
-            return agent.GetCurrentActionType(1) == Agent.ActionCodeType.Reload || weapon.ReloadPhase != 0;
-        }
-
-        return false;
-    }
-
-    // Handle weapon change queue
-    private void ProcessQueueTick(float dt)
-    {
-        var pendingChanges = new List<NetworkCommunicator>();
-        var cancelledChanges = new List<NetworkCommunicator>();
-
-        foreach (var kvp in _wantsToChangeAmmoQuiver)
-        {
-            var playerId = kvp.Key;
-            var quiverRequest = kvp.Value;
-
-            if (!quiverRequest.AmmoChangeRequested)
-            {
-                continue;
-            }
-
-            var peer = GameNetwork.NetworkPeers.FirstOrDefault(p => p.VirtualPlayer.Id == playerId);
-            if (peer == null)
-            {
-                continue;
-            }
-
-            var agent = peer.ControlledAgent;
-            if (agent == null || !agent.IsActive())
-            {
-                cancelledChanges.Add(peer);
-                continue;
-            }
-
-            if (!IsAgentRangedWeaponLoadedOrLoading(agent, out bool notRangedWeapon))
-            {
-                if (notRangedWeapon)
-                {
-                    cancelledChanges.Add(peer);
-                }
-                else
-                {
-                    pendingChanges.Add(peer);
-                }
-            }
-        }
-
-        foreach (var peer in cancelledChanges)
-        {
-            _wantsToChangeAmmoQuiver.Remove(peer.VirtualPlayer.Id);
-            SendQuiverMessageToClient(peer, QuiverServerMessageAction.QuiverChangeCancelled);
-        }
-
-        foreach (var peer in pendingChanges)
-        {
-            ExecuteClientAmmoQuiverChange(peer);
-        }
-    }
-
-    private void HandleQuiverServerMessage(QuiverServerMessage message)
-    {
-        switch (message.Action)
-        {
-            case QuiverServerMessageAction.UpdateQuiverChangeMode:
-                CycleQuiverChangeMode();
-                break;
-        }
-    }
-
-    private bool HandleQuiverClientMessage(NetworkCommunicator peer, QuiverClientMessage message)
-    {
-        switch (message.Action)
-        {
-            case QuiverClientMessageAction.None:
-                break;
-            case QuiverClientMessageAction.QuiverChangeRequest:
-                if (QuiverChangeMode == QuiverChangeModeEnum.Queued)
-                {
-                    PlayerId playerId = peer.VirtualPlayer.Id;
-                    // check if loaded ammo in weapon -- set flag and wait until shot or weapon changed to execute WIP
-                    if (!_wantsToChangeAmmoQuiver.TryGetValue(playerId, out var lastActiveStatus))
-                    {
-                        _wantsToChangeAmmoQuiver[playerId] = new ChangeStatus
-                        {
-                            AmmoChangeRequested = true,
-                        };
-                    }
-                }
-                else if (QuiverChangeMode == QuiverChangeModeEnum.ConditionsMet)
-                {
-                    ExecuteClientAmmoQuiverChange(peer);
-                }
-                else if (QuiverChangeMode == QuiverChangeModeEnum.Forced)
-                {
-                    ResetReloadAnimationsAndWeapon(peer);
-                    ExecuteClientAmmoQuiverChange(peer);
-                }
-
-                break;
-            case QuiverClientMessageAction.QuiverCancelReload:
-
-                break;
-        }
-
+        ResetReloadAnimationsAndWeapon(peer);
+        ExecuteClientAmmoQuiverChange(peer);
         return true;
     }
 
@@ -405,18 +220,11 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
             SwapQuivers(agent, equipment, ammoQuivers);
         }
 
-        if (QuiverChangeMode == QuiverChangeModeEnum.Queued)
-        {
-            // Handle the request to change ammo quiver
-            var playerId = peer.VirtualPlayer.Id;
-            if (_wantsToChangeAmmoQuiver.Remove(playerId))
-            {
-                // If the request exists, we remove it
-            }
-        }
-
         agent.UpdateWeapons();
-        SendQuiverMessageToClient(peer, QuiverServerMessageAction.QuiverChangeSuccess);
+
+        GameNetwork.BeginModuleEventAsServer(peer);
+        GameNetwork.WriteMessage(new AmmoQuiverChangeSuccessServerMessage());
+        GameNetwork.EndModuleEventAsServer();
     }
 
     private void CycleThrowingQuivers(Agent agent, EquipmentIndex wieldedWeaponIndex, MissionEquipment equipment, List<int> ammoQuivers)
@@ -468,10 +276,5 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
             int fromIndex = (i + 1) % count;
             agent.EquipWeaponWithNewEntity((EquipmentIndex)ammoQuivers[i], ref cachedWeapons[fromIndex]);
         }
-    }
-
-    private struct ChangeStatus
-    {
-        public bool AmmoChangeRequested { get; set; }
     }
 }
