@@ -139,7 +139,21 @@ public class FriendlyHorseChargeServerBehavior : MissionNetwork
         // Log calculated damage
         Debug.Print($"Calculated damage: baseDamage={baseDamage}, speedFactor={speedFactor}, scaledDamage={scaledDamage}");
 
+        // Normalize the horse's velocity for impact direction
+        Vec3 weaponBlowDir = horse.Velocity;
+        float length = weaponBlowDir.Length;
+        if (length > 0f)
+        {
+            weaponBlowDir /= length; // Normalize the vector
+        }
+
+        string outstring = $"horseSpeed: {horseSpeed} scaledDamage: {scaledDamage} weaponBlowDir: {weaponBlowDir}, length: {length}";
+        // Log normalized direction
+        Debug.Print(outstring);
+
+
         // Create blow object for applying damage
+        /*
         Blow blow = new Blow(rider.Index)
         {
             VictimBodyPart = BoneBodyPartType.Chest,
@@ -151,26 +165,39 @@ public class FriendlyHorseChargeServerBehavior : MissionNetwork
             AbsorbedByArmor = 0f,
             DamageCalculated = true,
             BlowFlag = BlowFlags.None,
+            Direction = weaponBlowDir,
+
         };
 
         // Apply knockdown or knockback based on speed
         blow.BlowFlag |= horseSpeed > 4f ? BlowFlags.KnockDown : BlowFlags.KnockBack;
 
-        // Normalize the horse's velocity for impact direction
-        Vec3 weaponBlowDir = horse.Velocity;
-        float length = weaponBlowDir.Length;
-        if (length > 0f)
+        */
+        Blow blow = new Blow(rider.Index)
         {
-            weaponBlowDir /= length; // Normalize the vector
-        }
-
-        // Log normalized direction
-        Debug.Print($"Normalized weapon blow direction: {weaponBlowDir}");
+            VictimBodyPart = BoneBodyPartType.Chest,
+            DamageType = DamageTypes.Blunt,
+            BaseMagnitude = scaledDamage,
+            InflictedDamage = (int)scaledDamage,
+            SelfInflictedDamage = 0,
+            MovementSpeedDamageModifier = 1f,
+            AbsorbedByArmor = 0f,
+            DamageCalculated = true,
+            BlowFlag = horseSpeed > 4f ? BlowFlags.KnockDown : BlowFlags.KnockBack,
+            Direction = weaponBlowDir,
+        };
 
         // Construct AttackCollisionData
         // CombatCollisionResult collisionResult = new CombatCollisionResult();
 
         AttackCollisionData collisionData = BuildSafeCollisionData(rider, victim, weaponBlowDir, horse.Velocity.Length);
+
+        Debug.Print(GetFloatDebugStringMultiline(collisionData));
+
+        string debugString = DumpAllFields(collisionData);
+        Debug.Print(debugString);
+
+        victim.RegisterBlow(blow, in collisionData);
     }
 
     private AttackCollisionData BuildSafeCollisionData(
@@ -202,7 +229,7 @@ public class FriendlyHorseChargeServerBehavior : MissionNetwork
 
         CombatCollisionResult collisionResult = new CombatCollisionResult();
 
-        return AttackCollisionData.GetAttackCollisionDataForDebugPurpose(
+        var acd = AttackCollisionData.GetAttackCollisionDataForDebugPurpose(
             _attackBlockedWithShield: false,
             _correctSideShieldBlock: false,
             _isAlternativeAttack: false,
@@ -240,6 +267,56 @@ public class FriendlyHorseChargeServerBehavior : MissionNetwork
             MissileStartingPosition: Vec3.Zero,
             VictimAgentCurVelocity: victim.Velocity,
             GroundNormal: Vec3.Zero);
+
+        return acd;
+    }
+
+    private string DumpAllFields(object obj)
+    {
+        var type = obj.GetType();
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"[{type.Name} Field Dump]");
+
+        var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+
+        foreach (var field in type.GetFields(flags))
+        {
+            object value = field.GetValue(obj) ?? "null";
+            sb.AppendLine($"{field.Name}: {FormatValue(value)}");
+        }
+
+        return sb.ToString();
+    }
+
+    private string FormatValue(object? value)
+    {
+        // Handle special types like Vec3 and float
+        if (value is Vec3 v)
+            return v.ToString();
+        if (value is float f)
+            return f.ToString("F2");
+
+        // Handle null values explicitly
+        if (value == null)
+            return "null";
+
+        // Use null-conditional operator to prevent potential null reference errors
+        return value?.ToString() ?? "null";
+    }
+
+    private string GetFloatDebugStringMultiline(AttackCollisionData acd)
+    {
+        return
+    $@"AttackProgress: {acd.AttackProgress:F2}
+    CollisionDistanceOnWeapon: {acd.CollisionDistanceOnWeapon:F2}
+    AttackerStunPeriod: {acd.AttackerStunPeriod:F2}
+    DefenderStunPeriod: {acd.DefenderStunPeriod:F2}
+    MissileTotalDamage: {acd.MissileTotalDamage:F2}
+    ChargeVelocity: {acd.ChargeVelocity:F2}
+    FallSpeed: {acd.FallSpeed:F2}
+    Victim Velocity: {acd.VictimAgentCurVelocity} (Length: {acd.VictimAgentCurVelocity.Length:F2})";
     }
 
     private void ClampAndLogCollisionDataFields(

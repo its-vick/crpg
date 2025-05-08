@@ -62,7 +62,7 @@ internal class DebugSpawnBotCommand : ChatCommand
 
         SetAgentInFrontOfPlayer(peerAgent, closestEnemyBot);
 
-        FindAndTakeOverNearestHorse(peerAgent);
+        // FindAndTakeOverNearestHorse(peerAgent);
     }
 
     private void SetAgentInFrontOfPlayer(Agent playerAgent, Agent movedAgent)
