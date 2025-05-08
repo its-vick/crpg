@@ -23,6 +23,7 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         AgentStatusChanged,
         AmmoCountIncreased,
         AmmoCountDecreased,
+        AmmoQuiverSettingsChanged,
     }
 
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
@@ -33,9 +34,10 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
     private MissionTime _lastMissileShotTime = MissionTime.Zero;
     private MissionTime _lastAmmoChangeTime = MissionTime.Zero;
     private int _quiverChangeCount = 0;
-
     private bool _wasMainAgentActive = false;
     private int _lastKnownTotalAmmo = -1;
+    private bool _settingQuiverChangeEnabled = true;
+    private bool _settingQuiverGuiEnabled = true;
 
     public AmmoQuiverChangeBehaviorClient()
     {
@@ -154,6 +156,11 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
             return false;
         }
 
+        if (!_settingQuiverChangeEnabled)
+        {
+            return false;
+        }
+
         if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
         {
             return false;
@@ -233,6 +240,7 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         {
             base.AddRemoveMessageHandlers(registerer);
             registerer.Register<AmmoQuiverChangeSuccessServerMessage>(HandleQuiverChangeSuccessMessage);
+            registerer.Register<AmmoQuiverChangeSettingsServerMessage>(HandleQuiverChangeSettingsMessage);
         }
     }
 
@@ -326,5 +334,33 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         {
             PlaySoundForMainAgent(_changedSuccessSound);
         }
+    }
+
+    private void HandleQuiverChangeSettingsMessage(AmmoQuiverChangeSettingsServerMessage message)
+    {
+        switch (message.Action)
+        {
+            case AmmoQuiverChangeSettingsAction.DisableQuiverChange:
+                // Disable quiver change and Gui
+                _settingQuiverChangeEnabled = false;
+                _settingQuiverGuiEnabled = false;
+                break;
+            case AmmoQuiverChangeSettingsAction.EnableQuiverChange:
+                // Enable quiver change and Gui
+                _settingQuiverChangeEnabled = true;
+                _settingQuiverGuiEnabled = true;
+                break;
+            case AmmoQuiverChangeSettingsAction.HideQuiverGui:
+                // Hide the quiver GUI
+                _settingQuiverGuiEnabled = false;
+                break;
+            case AmmoQuiverChangeSettingsAction.ShowQuiverGui:
+                // Show the quiver GUI
+                _settingQuiverGuiEnabled = true;
+                break;
+        }
+
+        // Hide the gui in VM via UiHandler listener
+        TriggerQuiverEvent(QuiverEventType.AmmoQuiverSettingsChanged, _settingQuiverGuiEnabled);
     }
 }

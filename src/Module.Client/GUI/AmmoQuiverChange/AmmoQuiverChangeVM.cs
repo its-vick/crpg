@@ -10,6 +10,8 @@ internal class AmmoQuiverChangeVm : ViewModel
     private const float MarginRightThrow = 18;
     private const float MarginRightOther = 80;
 
+    private bool _showQuiverGui;
+
     private bool _showQuiverAmmoCount;
     private bool _showQuiverName;
     private bool _isQuiverAmmoCountAlertEnabled;
@@ -28,6 +30,7 @@ internal class AmmoQuiverChangeVm : ViewModel
 
     public AmmoQuiverChangeVm(Mission mission)
     {
+        _showQuiverGui = true;
         _quiverName = string.Empty;
         _currentQuiverAmmo = 0;
         _isQuiverAmmoCountAlertEnabled = false;
@@ -192,7 +195,7 @@ internal class AmmoQuiverChangeVm : ViewModel
     {
         Agent agent = Agent.Main;
 
-        if (agent == null || !agent.IsActive() || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
+        if (agent == null || !agent.IsActive() || !ShowQuiverGui || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
         {
             QuiverImage0 = new ImageIdentifierVM(ImageIdentifierType.Item);
             QuiverImage1 = new ImageIdentifierVM(ImageIdentifierType.Item);
@@ -240,7 +243,7 @@ internal class AmmoQuiverChangeVm : ViewModel
     public void UpdateWeaponStatuses()
     {
         Agent agent = Agent.Main;
-        if (agent == null || !agent.IsActive())
+        if (agent == null || !agent.IsActive() || !ShowQuiverGui)
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
@@ -298,6 +301,20 @@ internal class AmmoQuiverChangeVm : ViewModel
         if (hasChanged)
         {
             UpdateQuiverImages();
+        }
+    }
+
+    [DataSourceProperty]
+    public bool ShowQuiverGui
+    {
+        get => _showQuiverGui;
+        set
+        {
+            if (value != _showQuiverGui)
+            {
+                _showQuiverGui = value;
+                OnPropertyChangedWithValue(value);
+            }
         }
     }
 
