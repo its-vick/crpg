@@ -264,6 +264,12 @@ internal class AmmoQuiverChangeComponent : MissionNetwork
                 continue;
             }
 
+            // attack release phase ineligible -- throwing release
+            if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
+            {
+                continue;
+            }
+
             if (!IsAgentRangedWeaponLoadedOrLoading(agent, out bool notRangedWeapon))
             {
                 if (notRangedWeapon)

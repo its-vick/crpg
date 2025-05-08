@@ -228,6 +228,13 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
                         PlaySoundForMainAgent(_changeDeniedSound);
                         return false;
                 }
+                // attack release phase ineligible -- throwing release
+                if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
+                {
+                    LogDebug($"RequestChangeRangedAmmo(): actionCode ineligible condition for {wieldedWeapon.Item.Name}");
+                    PlaySoundForMainAgent(_changeDeniedSound);
+                    return false;
+                }
             }
 
             if (QuiverChangeMode == QuiverChangeModeEnum.Forced)
@@ -243,6 +250,13 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
                         LogDebug($"RequestChangeRangedAmmo() Bullet is already loaded in {wieldedWeapon.Item.Name}.");
                         PlaySoundForMainAgent(_changeDeniedSound);
                         return false;
+                }
+                // attack release phase ineligible -- throwing release
+                if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
+                {
+                    LogDebug($"RequestChangeRangedAmmo(): actionCode ineligible condition for {wieldedWeapon.Item.Name}");
+                    PlaySoundForMainAgent(_changeDeniedSound);
+                    return false;
                 }
             }
         }
