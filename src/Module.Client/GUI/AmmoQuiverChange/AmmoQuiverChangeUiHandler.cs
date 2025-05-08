@@ -79,10 +79,6 @@ internal class AmmoQuiverChangeUiHandler : MissionView
         {
             _dataSource?.UpdateWieldedWeapon((EquipmentIndex)parameters[0], (MissionWeapon)parameters[1]);
         }
-        else if (type == AmmoQuiverChangeBehaviorClient.QuiverEventType.AmmoQuiverSettingsChanged && parameters.Length >= 1)
-        {
-            _dataSource.ShowQuiverGui = (bool)parameters[0];
-        }
 
         _dataSource?.UpdateWeaponStatuses();
     }

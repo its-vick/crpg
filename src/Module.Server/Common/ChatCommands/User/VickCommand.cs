@@ -48,7 +48,7 @@ internal class VickCommand : ChatCommand
     {
         string message = (string)arguments[0];
 
-        // Change equipment for player
+        // Change equipment for plaeyr
         int index = Array.IndexOf(weaponSetNames, message);
 
         if (index >= 0)

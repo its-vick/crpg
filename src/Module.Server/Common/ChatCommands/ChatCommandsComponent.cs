@@ -48,7 +48,6 @@ internal class ChatCommandsComponent : GameHandler
                 new HotConstantUpdateCommand(this),
                 new OrderCommand(this),
                 new HelpCommand(this),
-                new QuiverCommand(this),
                 new VickCommand(this),
         };
 #else
