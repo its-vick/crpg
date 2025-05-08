@@ -179,6 +179,13 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
             return false;
         }
 
+        // attack release phase ineligible - throwing release
+        if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
+        {
+            PlaySoundForMainAgent(_changeDeniedSound);
+            return false;
+        }
+
         if (!wieldedWeapon.IsEmpty &&
             !wieldedWeapon.IsEqualTo(MissionWeapon.Invalid) &&
             wieldedWeapon.Item is { } weaponItem)
