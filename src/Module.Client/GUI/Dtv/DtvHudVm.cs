@@ -270,8 +270,6 @@ internal class DtvHudVm : ViewModel
             return;
         }
 
-        InformationManager.DisplayMessage(new InformationMessage("UpdateVipAgentHealthBar health changed"));
-
         VipHealth = newVipHealth;
         _lastVipHealth = newVipHealth;
 
