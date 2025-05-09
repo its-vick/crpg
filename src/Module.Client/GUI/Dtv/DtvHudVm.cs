@@ -1,5 +1,7 @@
-﻿using Crpg.Module.GUI.Hud;
+﻿using System.Drawing;
+using Crpg.Module.GUI.Hud;
 using Crpg.Module.Modes.Dtv;
+using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.Library;
 using TaleWorlds.Localization;
 using TaleWorlds.MountAndBlade;
@@ -19,6 +21,9 @@ internal class DtvHudVm : ViewModel
     private int _currentWave;
     private int _currentRound;
     private bool _isGameStarted;
+    private int _vipHealth = 0;
+    private bool _isVipHealthBarVisible = false;
+    private TaleWorlds.GauntletUI.Brush _vipHealthBrush;
 
     public DtvHudVm(Mission mission)
     {
@@ -26,6 +31,7 @@ internal class DtvHudVm : ViewModel
         _enemyBannerVm = new BannerHudVm(mission, allyBanner: false);
         _timerVm = new TimerHudVm(mission);
         _client = mission.GetMissionBehavior<CrpgDtvClient>();
+        _vipHealthBrush = UIResourceManager.BrushFactory.GetBrush("CrpgHUD.Dtv.HealthBarBrush.Healthy");
         RefreshValues();
     }
 
@@ -178,6 +184,48 @@ internal class DtvHudVm : ViewModel
         }
     }
 
+    [DataSourceProperty]
+    public bool IsVipHealthBarVisible
+    {
+        get => _isVipHealthBarVisible;
+        set
+        {
+            if (value != _isVipHealthBarVisible)
+            {
+                _isVipHealthBarVisible = value;
+                OnPropertyChangedWithValue(value);
+            }
+        }
+    }
+
+    [DataSourceProperty]
+    public int VipHealth
+    {
+        get => _vipHealth;
+        set
+        {
+            if (_vipHealth != value)
+            {
+                _vipHealth = value;
+                OnPropertyChangedWithValue(value, nameof(VipHealth));
+            }
+        }
+    }
+
+    [DataSourceProperty]
+    public TaleWorlds.GauntletUI.Brush VipHealthBrush
+    {
+        get => _vipHealthBrush;
+        set
+        {
+            if (_vipHealthBrush != value)
+            {
+                _vipHealthBrush = value;
+                OnPropertyChangedWithValue(value, nameof(VipHealthBrush));
+            }
+        }
+    }
+
     public void Tick(float dt)
     {
         _timerVm.Tick(dt);
@@ -186,6 +234,8 @@ internal class DtvHudVm : ViewModel
         {
             AttackerMemberCount = Mission.Current.AttackerTeam.ActiveAgents.Count;
             DefenderMemberCount = Mission.Current.DefenderTeam.ActiveAgents.Count;
+
+            UpdateVipAgentHealthBar();
         }
     }
 
@@ -193,5 +243,27 @@ internal class DtvHudVm : ViewModel
     {
         CurrentWave = _client.CurrentWave;
         CurrentRound = _client.CurrentRound;
+    }
+
+    public void UpdateVipAgentHealthBar()
+    {
+        var agent = _client?.VipAgent;
+
+        if (agent == null || !agent.IsActive())
+        {
+            VipHealth = 0;
+            IsVipHealthBarVisible = false;
+            return;
+        }
+
+        float healthRatio = MathF.Clamp(agent.Health / agent.HealthLimit, 0f, 1f);
+        VipHealth = (int)MathF.Round(healthRatio * 100);
+
+        VipHealthBrush = UIResourceManager.BrushFactory.GetBrush(
+            VipHealth > 75 ? "CrpgHUD.Dtv.HealthBarBrush.Healthy" :
+            VipHealth > 25 ? "CrpgHUD.Dtv.HealthBarBrush.Injured" :
+                             "CrpgHUD.Dtv.HealthBarBrush.Critical");
+
+        IsVipHealthBarVisible = true;
     }
 }
