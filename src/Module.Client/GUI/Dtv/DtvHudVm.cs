@@ -22,6 +22,7 @@ internal class DtvHudVm : ViewModel
     private int _currentRound;
     private bool _isGameStarted;
     private int _vipHealth = 0;
+    private int _lastVipHealth = 0;
     private bool _isVipHealthBarVisible = false;
     private TaleWorlds.GauntletUI.Brush _vipHealthBrush;
 
@@ -251,18 +252,33 @@ internal class DtvHudVm : ViewModel
 
         if (agent == null || !agent.IsActive())
         {
-            VipHealth = 0;
-            IsVipHealthBarVisible = false;
+            if (_lastVipHealth != 0)
+            {
+                VipHealth = 0;
+                _lastVipHealth = 0;
+                IsVipHealthBarVisible = false;
+            }
+
             return;
         }
 
         float healthRatio = MathF.Clamp(agent.Health / agent.HealthLimit, 0f, 1f);
-        VipHealth = (int)MathF.Round(healthRatio * 100);
+        int newVipHealth = (int)MathF.Round(healthRatio * 100);
+
+        if (newVipHealth == _lastVipHealth)
+        {
+            return;
+        }
+
+        InformationManager.DisplayMessage(new InformationMessage("UpdateVipAgentHealthBar health changed"));
+
+        VipHealth = newVipHealth;
+        _lastVipHealth = newVipHealth;
 
         VipHealthBrush = UIResourceManager.BrushFactory.GetBrush(
-            VipHealth > 75 ? "CrpgHUD.Dtv.HealthBarBrush.Healthy" :
-            VipHealth > 25 ? "CrpgHUD.Dtv.HealthBarBrush.Injured" :
-                             "CrpgHUD.Dtv.HealthBarBrush.Critical");
+            newVipHealth > 75 ? "CrpgHUD.Dtv.HealthBarBrush.Healthy" :
+            newVipHealth > 25 ? "CrpgHUD.Dtv.HealthBarBrush.Injured" :
+                                "CrpgHUD.Dtv.HealthBarBrush.Critical");
 
         IsVipHealthBarVisible = true;
     }
