@@ -1,15 +1,12 @@
 using Crpg.Module.Common.AmmoQuiverChange;
 using TaleWorlds.Core;
-using TaleWorlds.Engine;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.ViewModelCollection;
 
 namespace Crpg.Module.GUI.AmmoQuiverChange;
 
 internal class AmmoQuiverChangeVm : ViewModel
 {
-    private const bool IsDebugEnabled = false;
     private const float MarginRightThrow = 18;
     private const float MarginRightOther = 80;
 
@@ -88,7 +85,6 @@ internal class AmmoQuiverChangeVm : ViewModel
             if (!CurrentQuiver.IsEqualTo(MissionWeapon.Invalid))
             {
                 hasChanged = true;
-                UpdateQuiverImages();
             }
 
             CurrentQuiver = MissionWeapon.Invalid;
@@ -165,12 +161,6 @@ internal class AmmoQuiverChangeVm : ViewModel
             ammoWeapon = mWeaponAmmo;
             QuiverAmmoCountMarginRight = MarginRightOther;
 
-            if (hasChanged)
-            {
-                LogDebug("VM: hasChanged=true in GetCurrentQuiverAmmoAmount");
-                UpdateQuiverImages();
-            }
-
             return true;
         }
 
@@ -196,16 +186,10 @@ internal class AmmoQuiverChangeVm : ViewModel
         {
             WieldedWeapon = MissionWeapon.Invalid;
         }
-
-        UpdateQuiverImages();
-
-        LogDebug($"VM: onAgentWieldedWeaponChanged: {weaponName} Ranged: {RangedWeaponEquipped})");
     }
 
     public void UpdateQuiverImages()
     {
-        LogDebug("VM: UpdateQuiverImages()");
-
         Agent agent = Agent.Main;
 
         if (agent == null || !agent.IsActive() || RangedWeaponEquipped == false || WieldedWeapon.IsEmpty || WieldedWeapon.IsEqualTo(MissionWeapon.Invalid) || WieldedWeapon.Item == null)
@@ -218,7 +202,6 @@ internal class AmmoQuiverChangeVm : ViewModel
         }
 
         AmmoQuiverChangeComponent.GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers);
-        // LogDebug($"VM: UpdateQuiverImages: ammoQuivers: {ammoQuivers.Count})");
 
         // Throwing - remove wielded weapon from ammoQuivers list since there is a big picture of the weapon already
         if (WieldedWeapon.Item.Type == ItemObject.ItemTypeEnum.Thrown)
@@ -261,6 +244,7 @@ internal class AmmoQuiverChangeVm : ViewModel
         {
             ShowQuiverAmmoCount = false;
             ShowQuiverName = false;
+            UpdateQuiverImages();
             return;
         }
 
@@ -498,14 +482,4 @@ internal class AmmoQuiverChangeVm : ViewModel
             }
         }
     }
-
-#pragma warning disable CS0162 // Unreachable code if debug disabled
-    private void LogDebug(string message)
-    {
-        if (IsDebugEnabled)
-        {
-            InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
-        }
-    }
 }
-#pragma warning restore CS0162

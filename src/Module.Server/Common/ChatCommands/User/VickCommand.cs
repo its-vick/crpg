@@ -48,15 +48,6 @@ internal class VickCommand : ChatCommand
     {
         string message = (string)arguments[0];
 
-        // Change QuiverChangeMode in AmmoQuiverChangeComponent
-        if (message == "mode")
-        {
-            AmmoQuiverChangeComponent.CycleQuiverChangeMode();
-            string outmessage = $"QuiverChangeMode set to: {AmmoQuiverChangeComponent.QuiverChangeMode}";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
-            return;
-        }
-
         // Change equipment for plaeyr
         int index = Array.IndexOf(weaponSetNames, message);
 

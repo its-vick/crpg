@@ -1,6 +1,4 @@
 using System.ComponentModel;
-using Mono.Cecil.Cil;
-using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
@@ -25,11 +23,9 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         AgentStatusChanged,
         AmmoCountIncreased,
         AmmoCountDecreased,
-        QuiverChangeCancelled,
     }
 
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
-    private const bool IsDebugEnabled = true;
     private const float QuiverChangeWindowSeconds = 1.5f;
     private const int QuiverChangeMaxCount = 3;
     private readonly string _changedSuccessSound = "event:/mission/combat/pickup_arrows";
@@ -39,7 +35,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
     private int _quiverChangeCount = 0;
 
     private bool _wasMainAgentActive = false;
-    private bool _quiverChangeRequested = false;
     private int _lastKnownTotalAmmo = -1;
 
     public AmmoQuiverChangeBehaviorClient()
@@ -90,7 +85,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
                 return;
             }
 
-            LogDebug($"MB: OnAgentBuild()");
             TriggerQuiverEvent(QuiverEventType.AgentBuild, banner);
             OnMainAgentWieldedItemChangeHandler();
         }
@@ -116,16 +110,12 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
             }
 
             _lastMissileShotTime = MissionTime.Now;
-
-            LogDebug($"MB: OnAgentShootMissile() - for main agent only");
             TriggerQuiverEvent(QuiverEventType.MissileShot, shooterAgent, weaponIndex, position, velocity, orientation, hasRigidBody, forcedMissileIndex);
         }
     }
 
     public override void OnBehaviorInitialize()
     {
-        LogDebug($"MB: OnBehaviorInitialize()");
-
         if (Mission.Current != null)
         {
             Mission.Current.OnItemDrop += OnItemDropHandler;
@@ -140,8 +130,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
 
     public override void OnRemoveBehavior()
     {
-        LogDebug($"MB: OnRemoveBehavior()");
-
         if (Agent.Main != null)
         {
             Agent.Main.OnMainAgentWieldedItemChange -= OnMainAgentWieldedItemChangeHandler;
@@ -157,18 +145,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         base.OnRemoveBehavior();
     }
 
-    public void SendQuiverMessageToServer(QuiverClientMessageAction action)
-    {
-        if (GameNetwork.IsClient)
-        {
-            QuiverClientMessage quiverMessage = new(action);
-
-            GameNetwork.BeginModuleEventAsClient();
-            GameNetwork.WriteMessage(quiverMessage);
-            GameNetwork.EndModuleEventAsClient();
-        }
-    }
-
     public bool RequestChangeRangedAmmo()
     {
         Agent agent = Agent.Main;
@@ -180,19 +156,11 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
 
         if (!IsAgentWieldedWeaponRangedUsesQuiver(agent, out EquipmentIndex wieldedWeaponIndex, out MissionWeapon wieldedWeapon, out bool isThrowingWeapon))
         {
-            LogDebug("RequestChangeRangedAmmo(): IsAgentWieldedWeaponRangedUsesQuiver() failed");
             return false;
         }
 
         if (!CheckAmmoChangeSpam())
         {
-            LogDebug("RequestChangeRangedAmmo(): Rate limit exceeded. wait for cooldown.");
-            return false;
-        }
-
-        if (_quiverChangeRequested == true)
-        {
-            LogDebug("RequestChangeRangedAmmo(): Already a request waiting.");
             PlaySoundForMainAgent(_changeDeniedSound);
             return false;
         }
@@ -200,7 +168,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         // check agent quivers
         if (!GetAgentQuiversWithAmmoEquippedForWieldedWeapon(agent, out List<int> ammoQuivers))
         {
-            LogDebug("RequestChangeRangedAmmo(): GetAgentQuiversWithAmmoEquippedForWieldedWeapon() failed");
             PlaySoundForMainAgent(_changeDeniedSound);
             return false;
         }
@@ -208,7 +175,13 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         // not enough quivers with ammo found
         if (ammoQuivers.Count < 2)
         {
-            LogDebug("RequestChangeRangedAmmo(): Only one or no quiver with ammo found, no change possible");
+            PlaySoundForMainAgent(_changeDeniedSound);
+            return false;
+        }
+
+        // attack release phase ineligible - throwing release
+        if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
+        {
             PlaySoundForMainAgent(_changeDeniedSound);
             return false;
         }
@@ -217,54 +190,22 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
             !wieldedWeapon.IsEqualTo(MissionWeapon.Invalid) &&
             wieldedWeapon.Item is { } weaponItem)
         {
-            if (QuiverChangeMode == QuiverChangeModeEnum.ConditionsMet)
+            switch (weaponItem.Type)
             {
-                switch (weaponItem.Type)
-                {
-                    case ItemObject.ItemTypeEnum.Bow when wieldedWeapon.ReloadPhase > 0:
-                    case ItemObject.ItemTypeEnum.Crossbow when wieldedWeapon.ReloadPhase > 0:
-                    case ItemObject.ItemTypeEnum.Musket when wieldedWeapon.ReloadPhase > 0:
-                        LogDebug($"RequestChangeRangedAmmo(): reloadphase ineligible condition for {weaponItem.Name} ({wieldedWeapon.ReloadPhase})");
-                        PlaySoundForMainAgent(_changeDeniedSound);
-                        return false;
-                }
-                // attack release phase ineligible -- throwing release
-                if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
-                {
-                    LogDebug($"RequestChangeRangedAmmo(): actionCode ineligible condition for {wieldedWeapon.Item.Name}");
+                case ItemObject.ItemTypeEnum.Crossbow when wieldedWeapon.ReloadPhase == 2: // Loaded
                     PlaySoundForMainAgent(_changeDeniedSound);
                     return false;
-                }
-            }
 
-            if (QuiverChangeMode == QuiverChangeModeEnum.Forced)
-            {
-                switch (weaponItem.Type)
-                {
-                    case ItemObject.ItemTypeEnum.Crossbow when wieldedWeapon.ReloadPhase == 2: // Loaded
-                        LogDebug($"RequestChangeRangedAmmo() Bolt is already loaded in {wieldedWeapon.Item.Name}.");
-                        PlaySoundForMainAgent(_changeDeniedSound);
-                        return false;
-
-                    case ItemObject.ItemTypeEnum.Musket when wieldedWeapon.ReloadPhase == 1: // Loaded
-                        LogDebug($"RequestChangeRangedAmmo() Bullet is already loaded in {wieldedWeapon.Item.Name}.");
-                        PlaySoundForMainAgent(_changeDeniedSound);
-                        return false;
-                }
-                // attack release phase ineligible -- throwing release
-                if (agent.GetCurrentActionType(1) == Agent.ActionCodeType.ReleaseThrowing)
-                {
-                    LogDebug($"RequestChangeRangedAmmo(): actionCode ineligible condition for {wieldedWeapon.Item.Name}");
+                case ItemObject.ItemTypeEnum.Musket when wieldedWeapon.ReloadPhase == 1: // Loaded
                     PlaySoundForMainAgent(_changeDeniedSound);
                     return false;
-                }
             }
         }
 
-        LogDebug("RequestChangeRangedAmmo() Quivers Found: " + ammoQuivers.Count);
-        SendQuiverMessageToServer(QuiverClientMessageAction.QuiverChangeRequest);
+        GameNetwork.BeginModuleEventAsClient();
+        GameNetwork.WriteMessage(new AmmoQuiverChangeRequestClientMessage());
+        GameNetwork.EndModuleEventAsClient();
 
-        _quiverChangeRequested = true;
         return true;
     }
 
@@ -298,7 +239,7 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         if (GameNetwork.IsClient)
         {
             base.AddRemoveMessageHandlers(registerer);
-            registerer.Register<QuiverServerMessage>(HandleQuiverServerMessage);
+            registerer.Register<AmmoQuiverChangeSuccessServerMessage>(HandleQuiverChangeSuccessMessage);
         }
     }
 
@@ -341,7 +282,6 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
     {
         if (agent != null && spawnedItem != null && Mission.MainAgent != null && agent == Mission.MainAgent && agent.IsActive())
         {
-            LogDebug($"MB: HandleItemDrop() - for main agent only");
             TriggerQuiverEvent(QuiverEventType.ItemDrop, agent, spawnedItem);
         }
     }
@@ -350,14 +290,12 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
     {
         if (agent != null && spawnedItem != null && Mission.MainAgent != null && agent == Mission.MainAgent && Mission.MainAgent.IsActive())
         {
-            LogDebug($"MB: HandleItemPickup() - for main agent only");
             TriggerQuiverEvent(QuiverEventType.ItemPickup, agent, spawnedItem);
         }
     }
 
     private void OnMainAgentChangedHandler(object? sender, PropertyChangedEventArgs? e)
     {
-        LogDebug("MB: OnMainAgentChangedHandler()");
         if (Agent.Main != null)
         {
             // Prevent duplicate subscriptions
@@ -368,14 +306,11 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
 
             OnMainAgentWieldedItemChangeHandler(); // called once when agent changes
             _lastKnownTotalAmmo = GetTotalAmmoCount();
-            _quiverChangeRequested = false;
         }
     }
 
     private void OnMainAgentWieldedItemChangeHandler()
     {
-        LogDebug($"MB: OnMainAgentWieldedItemChangeHandler() ");
-
         Agent agent = Agent.Main;
         if (agent == null || !agent.IsActive() || agent.Equipment == null)
         {
@@ -390,42 +325,13 @@ internal class AmmoQuiverChangeBehaviorClient : MissionNetwork
         TriggerQuiverEvent(QuiverEventType.WieldedItemChanged, wieldedWeaponIndex, weapon);
     }
 
-    private void HandleQuiverServerMessage(QuiverServerMessage message)
+    private void HandleQuiverChangeSuccessMessage(AmmoQuiverChangeSuccessServerMessage message)
     {
-        LogDebug($"HandleQuiverServerMessage: {message.Action}");
-        switch (message.Action)
+        TriggerQuiverEvent(QuiverEventType.AmmoQuiverChanged);
+
+        if (IsAgentWieldedWeaponRangedUsesQuiver(Agent.Main, out _, out _, out bool isThrowingWeapon) && !isThrowingWeapon)
         {
-            case QuiverServerMessageAction.None:
-
-                break;
-            case QuiverServerMessageAction.QuiverChangeSuccess:
-                _quiverChangeRequested = false;
-                TriggerQuiverEvent(QuiverEventType.AmmoQuiverChanged);
-
-                // no sound if throwing
-                if (IsAgentWieldedWeaponRangedUsesQuiver(Agent.Main, out _, out _, out bool isThrowingWeapon) && !isThrowingWeapon)
-                {
-                    PlaySoundForMainAgent(_changedSuccessSound);
-                }
-
-                break;
-            case QuiverServerMessageAction.QuiverChangeCancelled:
-                LogDebug("Quiver Change cancelled by server. (Changed weapons with loaded xbow/gun maybe)");
-                _quiverChangeRequested = false;
-                TriggerQuiverEvent(QuiverEventType.QuiverChangeCancelled);
-                PlaySoundForMainAgent(_changeDeniedSound);
-                break;
+            PlaySoundForMainAgent(_changedSuccessSound);
         }
     }
-
-#pragma warning disable CS0162 // Unreachable code if debug disabled
-    private void LogDebug(string message)
-    {
-        if (IsDebugEnabled)
-        {
-            InformationManager.DisplayMessage(new InformationMessage($"[DEBUG] {message}"));
-        }
-    }
-#pragma warning restore CS0162
-
 }
