@@ -1,5 +1,4 @@
-﻿using System.Drawing;
-using Crpg.Module.GUI.Hud;
+﻿using Crpg.Module.GUI.Hud;
 using Crpg.Module.Modes.Dtv;
 using TaleWorlds.Engine.GauntletUI;
 using TaleWorlds.Library;
