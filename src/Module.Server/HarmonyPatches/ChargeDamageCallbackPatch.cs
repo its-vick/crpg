@@ -7,7 +7,7 @@ using TaleWorlds.MountAndBlade;
 
 namespace Crpg.Module.HarmonyPatches;
 
-// This patch modifies the ChargeDamageCallback method in the Mission class to prevent friendly fire and bypass TW from blocking it.
+// This patch modifies the ChargeDamageCallback method in the Mission class to enable friendly fire by bypassing conditional.
 
 [HarmonyPatch(typeof(Mission), "ChargeDamageCallback")]
 public static class ChargeDamageCallbackPatch
