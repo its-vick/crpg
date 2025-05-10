@@ -49,7 +49,6 @@ internal class ChatCommandsComponent : GameHandler
                 new OrderCommand(this),
                 new HelpCommand(this),
                 new DebugSpawnBotCommand(this),
-                new HorseChargeCommand(this),
         };
 #else
         _commands = Array.Empty<ChatCommand>();
