@@ -59,7 +59,6 @@ internal static class CrpgCharacterBuilder
             AddEquipment(equipment, index, equippedItem.UserItem.ItemId);
         }
 
-        AddEquipment(equipment, EquipmentIndex.Horse, "crpg_mount1_camel_17_v2_h3");
         return equipment;
     }
 
