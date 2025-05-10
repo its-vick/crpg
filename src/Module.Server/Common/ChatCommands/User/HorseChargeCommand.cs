@@ -6,7 +6,7 @@ internal class HorseChargeCommand : ChatCommand
 {
     private readonly string[] flagNames =
     {
-        "friendly",
+        "friend",
         "enemy",
         "global",
     };
@@ -15,7 +15,9 @@ internal class HorseChargeCommand : ChatCommand
     {
         Name = "hc";
         string listarray = string.Join(" ", flagNames);
-        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} [flag] [true|false]' - Change horse charge damage behavior. Available flags: {listarray}";
+        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} [flag] [true|false]' Available flags: {listarray}\n" +
+            $"global:{ChargeDamageControl.DisableAllChargeDamage} enemy:{ChargeDamageControl.AllowChargeEnemies} friend:{ChargeDamageControl.AllowChargeFriends}";
+
         Overloads = new CommandOverload[]
         {
             new(new[] { ChatCommandParameterType.String, ChatCommandParameterType.String }, ExecuteSuccess),
@@ -24,85 +26,58 @@ internal class HorseChargeCommand : ChatCommand
 
     private void ExecuteSuccess(NetworkCommunicator fromPeer, object[] arguments)
     {
-        string outmessage = string.Empty;
-
-        if (arguments.Length < 1)
+        void SendStatus()
         {
-            outmessage = $"Missing argument. Usage: [flag] [true|false]. Available flags: {string.Join(", ", flagNames)}";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal, outmessage);
-            outmessage = $"AllowChargeFriends={ChargeDamageControl.AllowChargeFriends}, DisableChargeEnemies={ChargeDamageControl.DisableChargeEnemies}, DisableAllChargeDamage={ChargeDamageControl.DisableAllChargeDamage}";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
+            string status = $"globaldisable:{ChargeDamageControl.DisableAllChargeDamage} " +
+                            $"enemy:{ChargeDamageControl.AllowChargeEnemies} " +
+                            $"friend:{ChargeDamageControl.AllowChargeFriends}";
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorWarning, status);
+        }
+
+        if (arguments.Length <= 1)
+        {
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal,
+                $"Missing argument. Usage: !hc [flag] [true|false]. Available flags: {string.Join(", ", flagNames)}");
+            SendStatus();
             return;
         }
 
         string strFlag = ((string)arguments[0]).ToLower();
-
-        // Only one argument passed — show current flag value
-        if (arguments.Length == 1)
-        {
-            switch (strFlag)
-            {
-                case "friendly":
-                    outmessage = $"ChargeDamageControl | AllowChargeFriends is: {ChargeDamageControl.AllowChargeFriends}";
-                    break;
-                case "enemy":
-                    outmessage = $"ChargeDamageControl | DisableChargeEnemies is: {ChargeDamageControl.DisableChargeEnemies}";
-                    break;
-                case "global":
-                    outmessage = $"ChargeDamageControl | DisableAllChargeDamage is: {ChargeDamageControl.DisableAllChargeDamage}";
-                    break;
-                default:
-                    outmessage = $"Invalid flag: {strFlag}. Available flags: {string.Join(", ", flagNames)}";
-                    break;
-            }
-
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
-            outmessage = $"AllowChargeFriends={ChargeDamageControl.AllowChargeFriends}, DisableChargeEnemies={ChargeDamageControl.DisableChargeEnemies}, DisableAllChargeDamage={ChargeDamageControl.DisableAllChargeDamage}";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
-            return;
-        }
-
-        // Expecting 2 arguments from here
         string strBool = ((string)arguments[1]).ToLower();
-        bool boolFlag;
 
-        if (strBool == "true")
+        if (!bool.TryParse(strBool, out bool boolFlag))
         {
-            boolFlag = true;
-        }
-        else if (strBool == "false")
-        {
-            boolFlag = false;
-        }
-        else
-        {
-            outmessage = $"Invalid argument: {strBool}. Expected 'true' or 'false'.";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal, outmessage);
-            outmessage = $"AllowChargeFriends={ChargeDamageControl.AllowChargeFriends}, DisableChargeEnemies={ChargeDamageControl.DisableChargeEnemies}, DisableAllChargeDamage={ChargeDamageControl.DisableAllChargeDamage}";
-            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal,
+                $"Invalid argument: {strBool}. Expected 'true' or 'false'.");
+            SendStatus();
             return;
         }
+
+        bool isValidFlag = true;
 
         switch (strFlag)
         {
-            case "friendly":
+            case "friend":
                 ChargeDamageControl.AllowChargeFriends = boolFlag;
                 break;
             case "enemy":
-                ChargeDamageControl.DisableChargeEnemies = boolFlag;
+                ChargeDamageControl.AllowChargeEnemies = boolFlag;
                 break;
             case "global":
                 ChargeDamageControl.DisableAllChargeDamage = boolFlag;
                 break;
             default:
-                outmessage = $"Invalid flag: {strFlag}. Available flags: {string.Join(", ", flagNames)}";
-                ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal, outmessage);
-                outmessage = $"AllowChargeFriends={ChargeDamageControl.AllowChargeFriends}, DisableChargeEnemies={ChargeDamageControl.DisableChargeEnemies}, DisableAllChargeDamage={ChargeDamageControl.DisableAllChargeDamage}";
-                ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
-                return;
+                isValidFlag = false;
+                ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorFatal,
+                    $"Invalid flag: {strFlag}. Available flags: {string.Join(", ", flagNames)}");
+                break;
         }
 
-        outmessage = $"AllowChargeFriends={ChargeDamageControl.AllowChargeFriends}, DisableChargeEnemies={ChargeDamageControl.DisableChargeEnemies}, DisableAllChargeDamage={ChargeDamageControl.DisableAllChargeDamage}";
-        ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, outmessage);
+        if (isValidFlag)
+        {
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, $"Set {strFlag} to {strBool}.");
+        }
+
+        SendStatus();
     }
 }

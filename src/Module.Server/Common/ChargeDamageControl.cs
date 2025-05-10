@@ -2,18 +2,17 @@ using TaleWorlds.MountAndBlade;
 
 namespace Crpg.Module.Common;
 
-// This class controls the charge damage behavior in the game through ChargeDamageCallbackPatch
 /*
-DisableAllChargeDamage = true   No charge damage at all *overrides other flags*
-DisableChargeEnemies = true     You cant bump enemies
-AllowChargeFriends = true       You can bump allies
-All false (default)             Only bump enemies (vanilla)
+    // This class controls the charge damage behavior in the game through ChargeDamageCallbackPatch
+    DisableAllChargeDamage = true   No charge damage at all ***overrides other flags***
+    AllowChargeFriends = true       You can bump allies
+    AllowChargeEnemies = true      You can bump enemies
 */
 public static class ChargeDamageControl
 {
     public static bool DisableAllChargeDamage { get; set; } = false;
-    public static bool DisableChargeEnemies { get; set; } = false;
     public static bool AllowChargeFriends { get; set; } = false;
+    public static bool AllowChargeEnemies { get; set; } = true;
 
     public static bool ShouldAllowChargeDamage(Agent attacker, Agent victim)
     {
@@ -22,7 +21,7 @@ public static class ChargeDamageControl
             return false;
         }
 
-        if (DisableChargeEnemies && attacker.IsEnemyOf(victim))
+        if (!AllowChargeEnemies && attacker.IsEnemyOf(victim))
         {
             return false;
         }
