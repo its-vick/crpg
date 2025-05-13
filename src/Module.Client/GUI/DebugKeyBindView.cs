@@ -1,13 +1,8 @@
 using Crpg.Module.Common.KeyBinder;
 using Crpg.Module.Common.KeyBinder.Models;
-using TaleWorlds.Core;
-using TaleWorlds.Engine;
 using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
-using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.View;
 using TaleWorlds.MountAndBlade.View.MissionViews;
-using TaleWorlds.MountAndBlade.View.Screens;
 
 namespace Crpg.Module.GUI;
 
@@ -41,9 +36,8 @@ public class DebugKeyBindView : MissionView, IUseKeyBinder
 
     public override void EarlyStart()
     {
-        TaleWorlds.Library.Debug.Print("DebugKeyBindView: EarlyStart()", 0, TaleWorlds.Library.Debug.DebugColor.Cyan);
+        // TaleWorlds.Library.Debug.Print("DebugKeyBindView: EarlyStart()", 0, TaleWorlds.Library.Debug.DebugColor.Cyan);
         debugKey = HotKeyManager.GetCategory(KeyCategoryId).GetGameKey("key_debug_test");
-
     }
 
     public override void OnMissionTick(float dt)
