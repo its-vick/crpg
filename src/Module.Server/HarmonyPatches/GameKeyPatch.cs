@@ -16,8 +16,6 @@ public static class GameKeyPatch
     [HarmonyPatch(typeof(HotKeyManager), nameof(HotKeyManager.RegisterInitialContexts))]
     public static bool Prefix_RegisterInitialContexts(ref IEnumerable<GameKeyContext> contexts)
     {
-        // TaleWorlds.Library.Debug.Print("HarmonyPrefix Patch initial contexts", 0, TaleWorlds.Library.Debug.DebugColor.Cyan);
-
         List<GameKeyContext> newContexts = contexts.ToList();
         foreach (GameKeyContext context in KeyBinder.KeyContexts.Values)
         {
@@ -35,7 +33,6 @@ public static class GameKeyPatch
     [HarmonyPatch(typeof(OptionsProvider), nameof(OptionsProvider.GetGameKeyCategoriesList))]
     public static IEnumerable<string> Postfix_GetGameKeyCategoriesList(IEnumerable<string> __result)
     {
-        // TaleWorlds.Library.Debug.Print("HarmonyPostfix Patch OptionsProvider", 0, TaleWorlds.Library.Debug.DebugColor.Cyan);
         return __result.Concat(KeyBinder.KeysCategories.Select(c => c.CategoryId).Distinct());
     }
 }

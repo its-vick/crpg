@@ -11,9 +11,9 @@ public sealed class GameKeyBinderContext : GameKeyContext
         : base(categoryId, 109 + keys.Count(), GameKeyContextType.Default)
     {
         this.keys = keys;
-        RegisterHotKeys();
+        // RegisterHotKeys();
         RegisterGameKeys();
-        RegisterGameAxisKeys();
+        // RegisterGameAxisKeys();
     }
 
     private void RegisterHotKeys()
