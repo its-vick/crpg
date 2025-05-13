@@ -75,6 +75,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
             new MissionBoundaryWallView(),
             new SpectatorCameraView(),
             new CrpgAgentHud(experienceTable),
+            new DebugKeyBindView(),
             // Draw flags but also player names when pressing ALT. (Native: CreateMissionFlagMarkerUIHandler)
             ViewCreatorManager.CreateMissionView<CrpgMarkerUiHandler>(isNetwork: false, null, gameModeClient),
         };
