@@ -25,6 +25,14 @@ internal static class BannerlordPatches
             nameof(CustomBattleServerPatch.Prefix));*/
     }
 
+#if CRPG_SERVER
+    public static void ApplyLate()
+    {
+        Harmony harmony = new("BannerlordServerPatchesLate");
+        harmony.PatchCategory(Assembly.GetExecutingAssembly(), "Late");
+    }
+#endif
+
     private static void AddPrefix(Harmony harmony, Type classToPatch, string functionToPatchName, BindingFlags flags, Type patchClass, string functionPatchName)
     {
         var functionToPatch = classToPatch.GetMethod(functionToPatchName, flags);

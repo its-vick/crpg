@@ -30,6 +30,7 @@ using TaleWorlds.MountAndBlade.DedicatedCustomServer;
 using TaleWorlds.MountAndBlade.ListedServer;
 using TaleWorlds.PlayerServices;
 using WindowsFirewallHelper;
+using Crpg.Module.HarmonyPatches;
 #else
 using TaleWorlds.Engine.GauntletUI;
 #endif
@@ -195,6 +196,14 @@ internal class CrpgSubModule : MBSubModuleBase
     }
 
 #endif
+
+    protected override void OnGameStart(Game game, IGameStarter gameStarterObject)
+    {
+#if CRPG_SERVER
+        BannerlordPatches.ApplyLate();
+#endif
+    }
+
     private CrpgConstants LoadCrpgConstants()
     {
         string path = ModuleHelper.GetModuleFullPath("cRPG") + "ModuleData/constants.json";
