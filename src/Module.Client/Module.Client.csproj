@@ -91,7 +91,7 @@
 
   <ItemGroup>
     <PackageReference Include="WindowsFirewallHelper" Version="2.2.0.86" />
-    <PackageReference Include="Lib.Harmony" Version="2.2.2" GeneratePathProperty="true" />
+    <PackageReference Include="Lib.Harmony" Version="2.3.3" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
