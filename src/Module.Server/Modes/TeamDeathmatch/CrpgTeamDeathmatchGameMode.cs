@@ -159,6 +159,7 @@ internal class CrpgTeamDeathmatchGameMode : MissionBasedMultiplayerGameMode
                 new CrpgCustomTeamBannersAndNamesServer(null),
                 new CrpgCommanderBehaviorServer(),
                 new CrpgRespawnTimerServer(teamDeathmatchServer, spawnBehavior),
+                new MissileTestServerBehavior(),
 #else
                 new MultiplayerAchievementComponent(),
                 MissionMatchHistoryComponent.CreateIfConditionsAreMet(),

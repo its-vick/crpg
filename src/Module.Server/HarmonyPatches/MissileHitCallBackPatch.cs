@@ -1,5 +1,7 @@
+using System.Reflection;
 using Crpg.Module.Api.Models.Items;
 using HarmonyLib;
+using NetworkMessages.FromServer;
 using TaleWorlds.Core;
 using TaleWorlds.Engine;
 using TaleWorlds.Library;
@@ -20,12 +22,19 @@ public static class MissileHitCallbackPatch
     [HarmonyPrefix]
     public static void Prefix_MissileHitCallback(ref int extraHitParticleIndex, ref AttackCollisionData collisionData, Vec3 missileStartingPosition, Vec3 missilePosition, Vec3 missileAngularVelocity, Vec3 movementVelocity, MatrixFrame attachGlobalFrame, MatrixFrame affectedShieldGlobalFrame, int numDamagedAgents, Agent attacker, Agent victim, GameEntity hitEntity)
     {
-        if (victim == null || !victim.IsHuman)
+        // Validate victim
+        if (victim == null || !victim.IsHuman || !victim.IsActive())
         {
             return;
         }
 
+        // Get missile
         int missileIndex = collisionData.AffectorWeaponSlotOrMissileIndex;
+        if (missileIndex < 0)
+        {
+            Debug.Print("missile index is invalid", 0, Debug.DebugColor.Purple);
+            return;
+        }
 
         Mission.Missile missile = Mission.Current.Missiles
             .FirstOrDefault(m => m.Index == missileIndex);
@@ -36,100 +45,128 @@ public static class MissileHitCallbackPatch
             return;
         }
 
-        MissionWeapon missileWeapon = missile.Weapon;
-        ItemObject missileItem = missileWeapon.Item;
+        // Skip if blocked by shield
+        if (collisionData.AttackBlockedWithShield)
+        {
+            Debug.Print("missile hit shield.", 0, Debug.DebugColor.Purple);
+            return;
+        }
 
-        /*
-                DamageTypes.Invalid; // -1
-                DamageTypes.Cut; // 0 // most likely to bounce
-                DamageTypes.Pierce; // 1 most likely to penetrate
-                DamageTypes.Blunt; // 2 // least chance to bounce off
-
-                ItemObject.ItemTypeEnum.Arrows; // has cut pierce and blunt damage types
-                ItemObject.ItemTypeEnum.Bolts; // has cut and pierce
-                ItemObject.ItemTypeEnum.Bullets;
-                ItemObject.ItemTypeEnum.Thrown; // has cut pierce and blunt damage types
-
-                */
-
-        // Logic for When missile should bounce?
-        // if arrow/bolt/ and victim armor ?
-        bool missileBounced = false;
+        // Gather missile and armor data
+        float dot = GetImpactCosine(collisionData.MissileVelocity, collisionData.CollisionGlobalNormal);
         BoneBodyPartType bodyPartHit = collisionData.VictimHitBodyPart;
-        MissionWeapon armorWeapon = MissionWeapon.Invalid;
-        // int armorAmount = 0;
+        EquipmentElement armorHit = GetArmorEquipmentElementFromBodyPart(victim, bodyPartHit);
+
+        // Skip if no armor on bodypart
+        if (armorHit.Item == null)
+        {
+            Debug.Print($"bodyPart:{bodyPartHit} armorHit.Item == null  (no armor on bodypart)!", 0, Debug.DebugColor.DarkCyan);
+            return;
+        }
+
+        // Gather more armor date
+        ArmorComponent.ArmorMaterialTypes armorMaterial = GetArmorMaterial(armorHit);
         float armorEffectiveness = victim.GetBaseArmorEffectivenessForBodyPart(bodyPartHit);
-        float armorAmount = GetCombinedArmorForBodyPart(victim, bodyPartHit);
-        switch (bodyPartHit)
+
+        Debug.Print($"BodyPart: {bodyPartHit} ArmorItem: {armorHit.Item.Name} Material: {armorMaterial} effective: {armorEffectiveness}", 0, Debug.DebugColor.Yellow);
+
+        // Bounce chance factors
+        float f_angle = Math.Clamp((0.3f - dot) / 0.3f, 0f, 1f);
+        float f_material = armorMaterial switch
         {
-            case BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight:
-                armorWeapon = victim.Equipment[EquipmentIndex.Gloves];
-                if (IsArmorWeaponPlate(armorWeapon))
-                {
-                    // armorAmount = armorWeapon.Item.ArmorComponent.ArmArmor;
-                    // 25 is high enough
-                }
+            ArmorComponent.ArmorMaterialTypes.Plate => 0.8f, // High bounce chance
+            ArmorComponent.ArmorMaterialTypes.Chainmail => 0.2f,
+            ArmorComponent.ArmorMaterialTypes.Leather => 0.1f,
+            ArmorComponent.ArmorMaterialTypes.Cloth => 0.1f,
+            _ => 0.1f,
+        };
 
-                break;
-            case BoneBodyPartType.Abdomen or BoneBodyPartType.Chest:
-                armorWeapon = victim.Equipment[EquipmentIndex.Body];
-                if (IsArmorWeaponPlate(armorWeapon))
-                {
-                    // armorAmount = armorWeapon.Item.ArmorComponent.BodyArmor;
-                    // 55 is high enough
-                }
-
-                break;
-            case BoneBodyPartType.Head:
-                armorWeapon = victim.Equipment[EquipmentIndex.Head];
-                if (IsArmorWeaponPlate(armorWeapon))
-                {
-                    // armorAmount = armorWeapon.Item.ArmorComponent.HeadArmor; // 52 is high enough
-                }
-
-                break;
-            case BoneBodyPartType.Neck: // maybe check helmet and chest and cape
-
-                break;
-            case BoneBodyPartType.ShoulderLeft or BoneBodyPartType.ShoulderRight:
-                armorWeapon = victim.Equipment[EquipmentIndex.Cape];
-                if (IsArmorWeaponPlate(armorWeapon))
-                {
-                    // armorAmount = armorWeapon.Item.ArmorComponent.BodyArmor;
-                }
-
-                break;
-            case BoneBodyPartType.Legs:
-                armorWeapon = victim.Equipment[EquipmentIndex.Leg];
-                if (IsArmorWeaponPlate(armorWeapon))
-                {
-                    // armorAmount = armorWeapon.Item.ArmorComponent.LegArmor;
-                }
-
-                break;
-            default:
-                break;
-        }
-
-        if (IsValidArmorWeaponItem(armorWeapon) && armorWeapon.Item.ArmorComponent.MaterialType == ArmorComponent.ArmorMaterialTypes.Plate) // CrpgArmorMaterialType.Plate?
+        float f_damageType = collisionData.DamageType switch
         {
+            (int)DamageTypes.Cut => 0.6f, // High bounce chance for arrows
+            (int)DamageTypes.Pierce => 0.2f,
+            (int)DamageTypes.Blunt => 0.1f,
+            _ => 0.1f,
+        };
 
-            missileBounced = true;
-        }
+        float f_missileType = missile.Weapon.Item.Type switch
+        {
+            ItemObject.ItemTypeEnum.Arrows => 0.1f,
+            ItemObject.ItemTypeEnum.Bolts => 0.1f,
+            ItemObject.ItemTypeEnum.Bullets => 0.1f,
+            ItemObject.ItemTypeEnum.Thrown => 0.1f,
+            _ => 0.1f,
+        };
+
+        float bodyPartFactor = bodyPartHit switch
+        {
+            BoneBodyPartType.Chest => 0.1f,
+            BoneBodyPartType.Head => 0.1f,
+            BoneBodyPartType.Abdomen => 0.1f,
+            BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight => 0.1f,
+            BoneBodyPartType.Legs => 0.1f,
+            _ => 0.1f,
+        };
+
+        float expectedArmor = GetExpectedArmor(bodyPartHit);
+        float ratio = expectedArmor > 0f ? armorEffectiveness / expectedArmor : 0f;
+        float f_armor = ratio < 0.5f
+            ? 0f
+            : ratio <= 2f
+                ? (ratio - 0.5f) / 1.5f
+                : 1f;
+
+        float f_damage = Math.Clamp(collisionData.InflictedDamage / 50f, 0f, 1f);
+        float f_speed = Math.Clamp(1f - collisionData.MissileVelocity.Length / 80f, 0f, 1f); // Lower chance for high speed (threshold=80)
+        // need to modify for throwing since slower
+
+        // Bounce chance formula
+
+        // ---weighted sum-- -
+        float w_angle = 1.5f;
+        float w_material = 1.0f;
+        float w_armor = 1.0f;
+        float w_speed = 0.01f;
+        float w_damage = 0.5f;
+        float w_damageType = 0.8f;
+        float w_missileType = 0.3f;
+
+        float rawScore = w_angle * f_angle
+                       + w_material * f_material
+                       + w_armor * f_armor
+                       + w_speed * f_speed
+                       + w_damage * f_damage
+                       + w_damageType * f_damageType
+                       + w_missileType * f_missileType;
+
+        float sumW = w_angle + w_material + w_armor + w_speed + w_damage + w_damageType + w_missileType;
+        float bounceChance = Math.Clamp(rawScore / sumW, 0f, 1f);
+
+        // Decide if missile bounces
+        bool missileBounced = MBRandom.RandomFloat < bounceChance;
+        Debug.Print($"////////////// Bounce Calculations //////////////", 0, Debug.DebugColor.White);
+        Debug.Print($"f_angle: {f_angle:F2}, f_material: {f_material:F2}, f_armor: {f_armor:F2}, f_speed: {f_speed:F2}, f_damage: {f_damage:F2}, f_damageType: {f_damageType:F2}, f_missileType: {f_missileType:F2})",
+            0, Debug.DebugColor.DarkCyan);
+        Debug.Print($"w_angle: {w_angle:F2}, w_material: {w_material:F2}, w_armor: {w_armor:F2}, w_speed: {w_speed:F2}, w_damage: {w_damage:F2}, w_damageType: {w_damageType:F2}, w_missileType: {w_missileType:F2})",
+            0, Debug.DebugColor.Magenta);
+        Debug.Print($"rawScore: {rawScore:F2}, sumW: {sumW:F2}, bounceChance: {bounceChance:F2}, missileBounced: {missileBounced}",
+            0, Debug.DebugColor.Purple);
+        Debug.Print($"////////////// +++++++++++++++++++ //////////////", 0, Debug.DebugColor.White);
+
+        missileBounced = true; // make true for now debug testing
 
         if (missileBounced)
         {
             int physicsMaterialIndex = PhysicsMaterial.GetFromName("metal").Index;
-
             collisionData = AttackCollisionData.GetAttackCollisionDataForDebugPurpose(
-                            collisionData.AttackBlockedWithShield,
-                            collisionData.CorrectSideShieldBlock,
+                            false, // collisionData.AttackBlockedWithShield,
+                            false, // collisionData.CorrectSideShieldBlock,
                             collisionData.IsAlternativeAttack,
-                            false, // isColliderAgent
+                            true, // isColliderAgent
                             collisionData.CollidedWithShieldOnBack,
                             collisionData.IsMissile,
                             collisionData.MissileBlockedWithWeapon,
-                            true, // missileHasPhysics
+                            false, // missileHasPhysics
                             collisionData.EntityExists,
                             collisionData.ThrustTipHit,
                             collisionData.MissileGoneUnderWater,
@@ -164,14 +201,87 @@ public static class MissileHitCallbackPatch
             SoundEventParameter soundEventParameter = new("Force", 1f);
             Current.MakeSound(ItemPhysicsSoundContainer.SoundCodePhysicsArrowlikeDefault, collisionData.CollisionGlobalPosition, false, false, attacker.Index, victim.Index, ref soundEventParameter);
             TaleWorlds.Library.Debug.Print("MissileHitPatched arrow bounced!!");
+
+            // Notify shooter and victim
+
+            return;
         }
 
         return;
     }
 
-    private static bool IsValidArmorWeaponItem(MissionWeapon armorWeapon)
+    private static float GetExpectedArmor(BoneBodyPartType bodyPart)
     {
-        if (armorWeapon.IsEmpty || armorWeapon.IsEqualTo(MissionWeapon.Invalid) || armorWeapon.Item == null)
+        return bodyPart switch
+        {
+            BoneBodyPartType.Head => 55f,     // middle of 45–64
+            BoneBodyPartType.Chest => 65f,    // middle of 45–80
+            BoneBodyPartType.Abdomen => 60f,  // similar to chest
+            BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight => 25f, // hand
+            BoneBodyPartType.Legs => 25f,     // foot
+            _ => 25f,
+        };
+    }
+
+    /*
+        45-64 headarmor
+        45-80 bodyarmor
+        20-30 handarmor
+        20-30 footarmor
+
+
+
+
+    */
+
+    /*  Decide to bounce
+        missileSpeed // speed on impact
+        glancingAngle // true if less than 0.3f or defined in IsLowAngleImpact()
+        impactCosine // [~1.0 - Direct/perpendicular] [~0.5 - Moderate angle] [~0.2 or less - Shallow/glancing] (if you want to fine tune impact angle calculations)
+
+        armorEffectiveness // agent.GetAgentDrivenPropertyValue(DrivenProperty.[bodypart]) armor amount for bodypart hit
+
+        damageType // DamageTypes.
+        missileItem.Type //  ItemObject.ItemTypeEnum.
+        bodyPartHit // BodyPartType.
+        armorMaterial // ArmorComponent.ArmorMaterialTypes.
+
+        DamageTypes.Invalid; // -1
+        DamageTypes.Cut; // 0 // most likely to bounce?
+        DamageTypes.Pierce; // 1 most likely to penetrate?
+        DamageTypes.Blunt; // 2 // least chance to bounce off?
+
+        ItemObject.ItemTypeEnum.Arrows; // has cut pierce and blunt damage types
+        ItemObject.ItemTypeEnum.Bolts; // has cut and pierce
+        ItemObject.ItemTypeEnum.Bullets;
+        ItemObject.ItemTypeEnum.Thrown; // has cut pierce and blunt damage types
+
+        BoneBodyPartType.None // -1
+        BoneBodyPartType.Head // 0
+        BoneBodyPartType.Neck // 1 // doesnt have its own armor category
+        BoneBodyPartType.Chest // 2
+        BoneBodyPartType.Abdomen // 3
+        BoneBodyPartType.ShoulderLeft // 4
+        BoneBodyPartType.ShoulderRight // 5
+        BoneBodyPartType.ArmLeft // 6
+        BoneBodyPartType.ArmRight // 7
+        BoneBodyPartType.Legs // 8
+        BoneBodyPartType.CriticalBodyPartsBegin // 0
+        BoneBodyPartType.CriticalBodyPartsEnd // 6
+
+        ArmorComponent.ArmorMaterialTypes.None // 0
+        ArmorComponent.ArmorMaterialTypes.Cloth // 1
+        ArmorComponent.ArmorMaterialTypes.Leather // 2
+        ArmorComponent.ArmorMaterialTypes.Chainmail // 3
+        ArmorComponent.ArmorMaterialTypes.Plate // 4
+    */
+
+    // collisionData = SetAttackCollisionData(collisionData, false, false, false, true, physicsMaterialIndex, true, CombatCollisionResult.None);
+    // public static AttackCollisionData SetAttackCollisionData(AttackCollisionData data, bool attackBlockedWithShield, bool collidedWithShieldOnBack, bool missileBlockedWithWeapon, bool missileHasPhysics, int physicsMaterialIndex, bool isColliderAgent, CombatCollisionResult collisionResult)
+
+    private static bool IsValidArmorWeaponItem(EquipmentElement armorWeapon)
+    {
+        if (armorWeapon.IsEmpty || armorWeapon.IsEqualTo(EquipmentElement.Invalid) || armorWeapon.Item == null)
         {
             return false;
         }
@@ -189,84 +299,24 @@ public static class MissileHitCallbackPatch
         return false;
     }
 
-    private static float GetCombinedArmorForBodyPart(Agent agent, BoneBodyPartType bodyPart)
+    private static ArmorComponent.ArmorMaterialTypes GetArmorMaterial(EquipmentElement armorWeapon)
     {
-        float totalArmor = 0f;
+        ArmorComponent.ArmorMaterialTypes result = ArmorComponent.ArmorMaterialTypes.None;
 
-        foreach (EquipmentIndex index in new[]
+        if (IsValidArmorWeaponItem(armorWeapon) && armorWeapon.Item.ArmorComponent != null)
         {
-            EquipmentIndex.Head,
-            EquipmentIndex.Body,
-            EquipmentIndex.Leg,
-            EquipmentIndex.Gloves,
-            EquipmentIndex.Cape,
-        })
-        {
-            MissionWeapon armorWeapon = agent.Equipment[index];
-            if (armorWeapon.IsEmpty || armorWeapon.Item == null || armorWeapon.Item.ArmorComponent == null)
-            {
-                continue;
-            }
-
-            ArmorComponent armor = armorWeapon.Item.ArmorComponent;
-
-            switch (bodyPart)
-            {
-                case BoneBodyPartType.Head:
-                    totalArmor += armor.HeadArmor;
-                    break;
-
-                case BoneBodyPartType.Chest:
-                case BoneBodyPartType.Abdomen:
-                    totalArmor += armor.BodyArmor;
-                    break;
-
-                case BoneBodyPartType.ArmLeft:
-                case BoneBodyPartType.ArmRight:
-                    totalArmor += armor.ArmArmor;
-                    break;
-
-                case BoneBodyPartType.Legs:
-                    totalArmor += armor.LegArmor;
-                    break;
-
-                case BoneBodyPartType.ShoulderLeft:
-                case BoneBodyPartType.ShoulderRight:
-                case BoneBodyPartType.Neck:
-                    totalArmor += armor.BodyArmor * 0.25f; // weighted or partial contribution
-                    totalArmor += armor.ArmArmor * 0.25f;
-                    totalArmor += armor.HeadArmor * 0.25f;
-                    break;
-
-                default:
-                    break;
-            }
+            result = armorWeapon.Item.ArmorComponent.MaterialType;
         }
 
-        return totalArmor;
+        return result;
     }
-
-    private static bool IsArmorWeaponPlate(MissionWeapon armorWeapon)
-    {
-        if (!IsValidArmorWeaponItem(armorWeapon))
-        {
-            return false;
-        }
-
-        if (armorWeapon.Item.ArmorComponent.MaterialType == ArmorComponent.ArmorMaterialTypes.Plate)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
 
     /*
-    ~1.0	Direct/perpendicular	Penetrates
-    ~0.5	Moderate angle	Depends on armor
-    ~0.2 or less	Shallow/glancing	Likely ricochet
+    ~1.0 - Direct/perpendicular - Penetrates
+    ~0.5 - Moderate angle - Depends on armor
+    ~0.2 or less - Shallow/glancing - Likely ricochet
     */
+
     private static bool IsLowAngleImpact(Vec3 missileVelocity, Vec3 surfaceNormal, float threshold = 0.3f)
     {
         if (missileVelocity.LengthSquared < 1e-6f)
@@ -275,10 +325,101 @@ public static class MissileHitCallbackPatch
         }
 
         Vec3 normalizedMissileDir = missileVelocity.NormalizedCopy();
-        float dot = Vec3.DotProduct(normalizedMissileDir, surfaceNormal);
-        return dot < threshold;
+        Vec3 normalizedSurfaceNormal = surfaceNormal.NormalizedCopy(); // Ensure normal is normalized
+        float dot = Vec3.DotProduct(normalizedMissileDir, normalizedSurfaceNormal);
+        bool result = Math.Abs(dot) < threshold; // Use absolute value for angle check
+        Debug.Print($"IsLowAngleImpact: {result}, Dot: {Math.Abs(dot):F3}", 0, Debug.DebugColor.Green);
+        return result;
+    }
+
+    private static float GetImpactCosine(Vec3 missileVelocity, Vec3 surfaceNormal)
+    {
+        if (missileVelocity.LengthSquared < 1e-6f)
+        {
+            return 1f; // Assume direct hit (cos(0°) = 1) for invalid velocity
+        }
+
+        Vec3 normalizedMissileDir = missileVelocity.NormalizedCopy();
+        Vec3 normalizedSurfaceNormal = surfaceNormal.NormalizedCopy();
+        float dot = Vec3.DotProduct(normalizedMissileDir, normalizedSurfaceNormal);
+        return Math.Abs(dot); // Return absolute dot product for angle magnitude
+    }
+
+    private static EquipmentElement GetArmorEquipmentElementFromBodyPart(Agent agent, BoneBodyPartType bodyPart)
+    {
+        EquipmentElement returnElement = EquipmentElement.Invalid;
+        if (agent == null || !agent.IsActive() || agent.SpawnEquipment == null)
+        {
+            return returnElement;
+        }
+
+        Equipment spawnEquipment = agent.SpawnEquipment;
+        EquipmentElement aE = EquipmentElement.Invalid;
+
+        switch (bodyPart)
+        {
+            case BoneBodyPartType.Head:
+                aE = spawnEquipment[EquipmentIndex.Head];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+
+            case BoneBodyPartType.Chest:
+            case BoneBodyPartType.Abdomen:
+                aE = spawnEquipment[EquipmentIndex.Body];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+
+            case BoneBodyPartType.ArmLeft:
+            case BoneBodyPartType.ArmRight:
+                aE = spawnEquipment[EquipmentIndex.Gloves];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+
+            case BoneBodyPartType.Legs:
+                aE = spawnEquipment[EquipmentIndex.Leg];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+
+            case BoneBodyPartType.ShoulderLeft:
+            case BoneBodyPartType.ShoulderRight:
+                aE = spawnEquipment[EquipmentIndex.Cape];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+
+            case BoneBodyPartType.Neck: // just do head for now
+                aE = spawnEquipment[EquipmentIndex.Head];
+                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                {
+                    returnElement = aE;
+                }
+
+                break;
+        }
+
+        return returnElement;
     }
 }
+
 #endif
 
 /* original
