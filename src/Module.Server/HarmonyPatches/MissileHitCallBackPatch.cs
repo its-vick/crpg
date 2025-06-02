@@ -1,5 +1,5 @@
 using System.Reflection;
-using Crpg.Module.Api.Models.Items;
+using Crpg.Module.Common.Models;
 using HarmonyLib;
 using NetworkMessages.FromServer;
 using TaleWorlds.Core;
@@ -39,6 +39,7 @@ public static class MissileHitCallbackPatch
         Mission.Missile missile = Mission.Current.Missiles
             .FirstOrDefault(m => m.Index == missileIndex);
 
+        // Validate missile
         if (missile == null || missile.Weapon.IsEmpty || missile.Weapon.IsEqualTo(MissionWeapon.Invalid) || missile.Weapon.Item == null)
         {
             Debug.Print("missile is null or invalid missionWeapon or item!", 0, Debug.DebugColor.Purple);
@@ -53,104 +54,59 @@ public static class MissileHitCallbackPatch
         }
 
         // Gather missile and armor data
-        float dot = GetImpactCosine(collisionData.MissileVelocity, collisionData.CollisionGlobalNormal);
         BoneBodyPartType bodyPartHit = collisionData.VictimHitBodyPart;
         EquipmentElement armorHit = GetArmorEquipmentElementFromBodyPart(victim, bodyPartHit);
 
         // Skip if no armor on bodypart
         if (armorHit.Item == null)
         {
-            Debug.Print($"bodyPart:{bodyPartHit} armorHit.Item == null  (no armor on bodypart)!", 0, Debug.DebugColor.DarkCyan);
+            Debug.Print($"bodyPart:{bodyPartHit} armorHit.Item == null  (no armor on bodypart)!", 0, Debug.DebugColor.Purple);
             return;
         }
 
-        // Gather more armor date
+        // Gather more armor data
         ArmorComponent.ArmorMaterialTypes armorMaterial = GetArmorMaterial(armorHit);
+
+        // Only a chance of bounce if plate or chainmail armor
+        if (armorMaterial != ArmorComponent.ArmorMaterialTypes.Plate && armorMaterial != ArmorComponent.ArmorMaterialTypes.Chainmail)
+        {
+            Debug.Print($"armorMaterial:{armorMaterial} not capable of arrow bounce!", 0, Debug.DebugColor.Purple);
+            return;
+        }
+
+        // Gather values
+        float dot = GetImpactCosine(collisionData.MissileVelocity, collisionData.CollisionGlobalNormal);
         float armorEffectiveness = victim.GetBaseArmorEffectivenessForBodyPart(bodyPartHit);
+        BoneBodyPartType bodyPart = bodyPartHit;
+        ArmorComponent.ArmorMaterialTypes material = armorMaterial;
+        DamageTypes damageType = (DamageTypes)collisionData.DamageType;
+        ItemObject.ItemTypeEnum missileType = missile.Weapon.Item.Type;
+        float damage = collisionData.InflictedDamage;
+        float speed = collisionData.MissileVelocity.Length;
 
         Debug.Print($"BodyPart: {bodyPartHit} ArmorItem: {armorHit.Item.Name} Material: {armorMaterial} effective: {armorEffectiveness}", 0, Debug.DebugColor.Yellow);
 
-        // Bounce chance factors
-        float f_angle = Math.Clamp((0.3f - dot) / 0.3f, 0f, 1f);
-        float f_material = armorMaterial switch
-        {
-            ArmorComponent.ArmorMaterialTypes.Plate => 0.8f, // High bounce chance
-            ArmorComponent.ArmorMaterialTypes.Chainmail => 0.2f,
-            ArmorComponent.ArmorMaterialTypes.Leather => 0.1f,
-            ArmorComponent.ArmorMaterialTypes.Cloth => 0.1f,
-            _ => 0.1f,
-        };
+        // Translate to abstract input
+        BounceInputs inputs = MissileBounceInputTranslator.FromGame(
+            dot,
+            armorEffectiveness,
+            material,
+            damageType,
+            missileType,
+            damage,
+            speed,
+            bodyPart);
 
-        float f_damageType = collisionData.DamageType switch
-        {
-            (int)DamageTypes.Cut => 0.6f, // High bounce chance for arrows
-            (int)DamageTypes.Pierce => 0.2f,
-            (int)DamageTypes.Blunt => 0.1f,
-            _ => 0.1f,
-        };
+        float bounceChance = PureMissileBounceCalculator.ComputeBounceChance(inputs);
 
-        float f_missileType = missile.Weapon.Item.Type switch
-        {
-            ItemObject.ItemTypeEnum.Arrows => 0.1f,
-            ItemObject.ItemTypeEnum.Bolts => 0.1f,
-            ItemObject.ItemTypeEnum.Bullets => 0.1f,
-            ItemObject.ItemTypeEnum.Thrown => 0.1f,
-            _ => 0.1f,
-        };
+        // float randomFloat = MBRandom.RandomFloatRanged(0f, 1.0f);
+        var random = new Random();
+        float randomFloat = (float)random.NextDouble(); // returns value in [0.0f, 1.0f)
 
-        float bodyPartFactor = bodyPartHit switch
-        {
-            BoneBodyPartType.Chest => 0.1f,
-            BoneBodyPartType.Head => 0.1f,
-            BoneBodyPartType.Abdomen => 0.1f,
-            BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight => 0.1f,
-            BoneBodyPartType.Legs => 0.1f,
-            _ => 0.1f,
-        };
+        bool missileBounced = randomFloat < bounceChance;
 
-        float expectedArmor = GetExpectedArmor(bodyPartHit);
-        float ratio = expectedArmor > 0f ? armorEffectiveness / expectedArmor : 0f;
-        float f_armor = ratio < 0.5f
-            ? 0f
-            : ratio <= 2f
-                ? (ratio - 0.5f) / 1.5f
-                : 1f;
-
-        float f_damage = Math.Clamp(collisionData.InflictedDamage / 50f, 0f, 1f);
-        float f_speed = Math.Clamp(1f - collisionData.MissileVelocity.Length / 80f, 0f, 1f); // Lower chance for high speed (threshold=80)
-        // need to modify for throwing since slower
-
-        // Bounce chance formula
-
-        // ---weighted sum-- -
-        float w_angle = 1.5f;
-        float w_material = 1.0f;
-        float w_armor = 1.0f;
-        float w_speed = 0.01f;
-        float w_damage = 0.5f;
-        float w_damageType = 0.8f;
-        float w_missileType = 0.3f;
-
-        float rawScore = w_angle * f_angle
-                       + w_material * f_material
-                       + w_armor * f_armor
-                       + w_speed * f_speed
-                       + w_damage * f_damage
-                       + w_damageType * f_damageType
-                       + w_missileType * f_missileType;
-
-        float sumW = w_angle + w_material + w_armor + w_speed + w_damage + w_damageType + w_missileType;
-        float bounceChance = Math.Clamp(rawScore / sumW, 0f, 1f);
-
-        // Decide if missile bounces
-        bool missileBounced = MBRandom.RandomFloat < bounceChance;
         Debug.Print($"////////////// Bounce Calculations //////////////", 0, Debug.DebugColor.White);
-        Debug.Print($"f_angle: {f_angle:F2}, f_material: {f_material:F2}, f_armor: {f_armor:F2}, f_speed: {f_speed:F2}, f_damage: {f_damage:F2}, f_damageType: {f_damageType:F2}, f_missileType: {f_missileType:F2})",
-            0, Debug.DebugColor.DarkCyan);
-        Debug.Print($"w_angle: {w_angle:F2}, w_material: {w_material:F2}, w_armor: {w_armor:F2}, w_speed: {w_speed:F2}, w_damage: {w_damage:F2}, w_damageType: {w_damageType:F2}, w_missileType: {w_missileType:F2})",
-            0, Debug.DebugColor.Magenta);
-        Debug.Print($"rawScore: {rawScore:F2}, sumW: {sumW:F2}, bounceChance: {bounceChance:F2}, missileBounced: {missileBounced}",
-            0, Debug.DebugColor.Purple);
+        Debug.Print($"bounceChance: {bounceChance:F2}, missileBounced: {missileBounced}", 0, Debug.DebugColor.Purple);
         Debug.Print($"////////////// +++++++++++++++++++ //////////////", 0, Debug.DebugColor.White);
 
         missileBounced = true; // make true for now debug testing
@@ -210,28 +166,11 @@ public static class MissileHitCallbackPatch
         return;
     }
 
-    private static float GetExpectedArmor(BoneBodyPartType bodyPart)
-    {
-        return bodyPart switch
-        {
-            BoneBodyPartType.Head => 55f,     // middle of 45–64
-            BoneBodyPartType.Chest => 65f,    // middle of 45–80
-            BoneBodyPartType.Abdomen => 60f,  // similar to chest
-            BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight => 25f, // hand
-            BoneBodyPartType.Legs => 25f,     // foot
-            _ => 25f,
-        };
-    }
-
     /*
         45-64 headarmor
         45-80 bodyarmor
         20-30 handarmor
         20-30 footarmor
-
-
-
-
     */
 
     /*  Decide to bounce
@@ -347,77 +286,108 @@ public static class MissileHitCallbackPatch
 
     private static EquipmentElement GetArmorEquipmentElementFromBodyPart(Agent agent, BoneBodyPartType bodyPart)
     {
-        EquipmentElement returnElement = EquipmentElement.Invalid;
         if (agent == null || !agent.IsActive() || agent.SpawnEquipment == null)
         {
+            return EquipmentElement.Invalid;
+        }
+
+        EquipmentIndex? index = bodyPart switch
+        {
+            BoneBodyPartType.Head or BoneBodyPartType.Neck => EquipmentIndex.Head,
+            BoneBodyPartType.Chest or BoneBodyPartType.Abdomen => EquipmentIndex.Body,
+            BoneBodyPartType.ArmLeft or BoneBodyPartType.ArmRight => EquipmentIndex.Gloves,
+            BoneBodyPartType.Legs => EquipmentIndex.Leg,
+            BoneBodyPartType.ShoulderLeft or BoneBodyPartType.ShoulderRight => EquipmentIndex.Cape,
+            _ => null,
+        };
+
+        if (index.HasValue)
+        {
+            EquipmentElement element = agent.SpawnEquipment[index.Value];
+            if (!element.IsEmpty && !element.IsEqualTo(EquipmentElement.Invalid))
+            {
+                return element;
+            }
+        }
+
+        return EquipmentElement.Invalid;
+    }
+
+    /*
+        private static EquipmentElement GetArmorEquipmentElementFromBodyPart(Agent agent, BoneBodyPartType bodyPart)
+        {
+            EquipmentElement returnElement = EquipmentElement.Invalid;
+            if (agent == null || !agent.IsActive() || agent.SpawnEquipment == null)
+            {
+                return returnElement;
+            }
+
+            Equipment spawnEquipment = agent.SpawnEquipment;
+            EquipmentElement aE = EquipmentElement.Invalid;
+
+            switch (bodyPart)
+            {
+                case BoneBodyPartType.Head:
+                    aE = spawnEquipment[EquipmentIndex.Head];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+
+                case BoneBodyPartType.Chest:
+                case BoneBodyPartType.Abdomen:
+                    aE = spawnEquipment[EquipmentIndex.Body];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+
+                case BoneBodyPartType.ArmLeft:
+                case BoneBodyPartType.ArmRight:
+                    aE = spawnEquipment[EquipmentIndex.Gloves];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+
+                case BoneBodyPartType.Legs:
+                    aE = spawnEquipment[EquipmentIndex.Leg];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+
+                case BoneBodyPartType.ShoulderLeft:
+                case BoneBodyPartType.ShoulderRight:
+                    aE = spawnEquipment[EquipmentIndex.Cape];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+
+                case BoneBodyPartType.Neck: // just do head for now
+                    aE = spawnEquipment[EquipmentIndex.Head];
+                    if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
+                    {
+                        returnElement = aE;
+                    }
+
+                    break;
+            }
+
             return returnElement;
         }
-
-        Equipment spawnEquipment = agent.SpawnEquipment;
-        EquipmentElement aE = EquipmentElement.Invalid;
-
-        switch (bodyPart)
-        {
-            case BoneBodyPartType.Head:
-                aE = spawnEquipment[EquipmentIndex.Head];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-
-            case BoneBodyPartType.Chest:
-            case BoneBodyPartType.Abdomen:
-                aE = spawnEquipment[EquipmentIndex.Body];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-
-            case BoneBodyPartType.ArmLeft:
-            case BoneBodyPartType.ArmRight:
-                aE = spawnEquipment[EquipmentIndex.Gloves];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-
-            case BoneBodyPartType.Legs:
-                aE = spawnEquipment[EquipmentIndex.Leg];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-
-            case BoneBodyPartType.ShoulderLeft:
-            case BoneBodyPartType.ShoulderRight:
-                aE = spawnEquipment[EquipmentIndex.Cape];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-
-            case BoneBodyPartType.Neck: // just do head for now
-                aE = spawnEquipment[EquipmentIndex.Head];
-                if (!aE.IsEmpty && !aE.IsEqualTo(EquipmentElement.Invalid))
-                {
-                    returnElement = aE;
-                }
-
-                break;
-        }
-
-        return returnElement;
-    }
+    */
 }
 
 #endif

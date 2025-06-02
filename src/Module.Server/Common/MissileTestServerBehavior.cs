@@ -1,20 +1,17 @@
-using TaleWorlds.MountAndBlade;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
+using TaleWorlds.MountAndBlade;
 using TaleWorlds.ObjectSystem;
-using TaleWorlds.Engine;
-using JetBrains.Annotations;
-using NetworkMessages.FromServer;
 
 namespace Crpg.Module.Common;
 
 internal class MissileTestServerBehavior : MissionBehavior
 {
+    private const float Interval = 5f;
+    private const float AfterStartInterval = 8f;
     private bool _isMissionStarted = false;
     private float _timer = 0f;
     private float _timer2 = 0f;
-    private const float Interval = 5f;
-    private const float AfterStart = 8f;
 
     private MissionWeapon arrowWeapon;
     private ItemObject? arrowItem;
@@ -30,13 +27,13 @@ internal class MissileTestServerBehavior : MissionBehavior
     public override void OnMissionStateActivated()
     {
         Debug.Print("OnMissionStateActivated", 0, Debug.DebugColor.DarkBlue);
-        //CreateMissileAmmo();
+        // CreateMissileAmmo();
         _isMissionStarted = true;
     }
 
     public override void OnMissionTick(float dt)
     {
-        //  Debug.Print("OnMissionTick", 0, Debug.DebugColor.DarkBlue);
+        // Debug.Print("OnMissionTick", 0, Debug.DebugColor.DarkBlue);
         _timer += dt;
         if (_timer >= Interval)
         {
@@ -46,13 +43,12 @@ internal class MissileTestServerBehavior : MissionBehavior
         }
 
         _timer2 += dt;
-        if (_timer2 >= AfterStart)
+        if (_timer2 >= AfterStartInterval)
         {
             _timer2 = 0f;
             EquipAllEnemiesWithBowAndArrow();
         }
     }
-
 
     private void TryFireMissile()
     {
@@ -451,7 +447,7 @@ internal class MissileTestServerBehavior : MissionBehavior
         }
     }
 
-    bool AgentHasBow(Agent agent)
+    private bool AgentHasBow(Agent agent)
     {
         try
         {
