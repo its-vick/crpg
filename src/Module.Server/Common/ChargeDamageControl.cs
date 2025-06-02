@@ -13,6 +13,10 @@ public static class ChargeDamageControl
     public static bool DisableAllChargeDamage { get; set; } = false;
     public static bool AllowChargeFriends { get; set; } = true;
     public static bool AllowChargeEnemies { get; set; } = true;
+    public static bool MirrorFriendlyChargeDamageAgent { get; set; } = true;
+    public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
+    public static int MirrorMountDamageMultiplier { get; set; } = 3;
+    public static int MirrorAgentDamageMultiplier { get; set; } = 3;
 
     public static bool ShouldAllowChargeDamage(Agent attacker, Agent victim)
     {
