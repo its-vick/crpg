@@ -3,34 +3,45 @@ using TaleWorlds.MountAndBlade;
 namespace Crpg.Module.Common;
 
 /*
-    // This class controls the charge damage behavior in the game through ChargeDamageCallbackPatch
-    DisableAllChargeDamage = true   No charge damage at all ***overrides other flags***
-    AllowChargeFriends = true       You can bump allies
-    AllowChargeEnemies = true      You can bump enemies
+    // This class controls the charge damage behavior in the game through ChargeDamageCallbackPatch class
+
+    // Console commands/ServerConfigurations to control charge damage behavior
+
+    crpg_charge_damage_disable_all = False // Disable all charge damage ***overrides other flags***
+    crpg_charge_damage_allow_enemy = True // Allow charge damage to enemies
+    crpg_charge_damage_allow_friendly = True // Allow charge damage to friends
+    crpg_charge_damage_mirror_friendly_to_mount = True // Mirror charge damage from friendlies to mount
+    crpg_charge_damage_mirror_friendly_to_agent = True // Mirror charge damage from friendlies to rider
+    crpg_charge_damage_mirror_mount_damage_multiplier = 3 // Multiplier for charge damage to mount
+    crpg_charge_damage_mirror_agent_damage_multiplier = 3 // Multiplier for charge damage to rider
+
+    // ServerConfiguration values are used to control the charge damage behavior
+
+    CrpgServerConfiguration.DisableAllChargeDamage = false
+    CrpgServerConfiguration.AllowChargeEnemies = true
+    CrpgServerConfiguration.AllowFriendlyChargeDamage = true
+    CrpgServerConfiguration.MirrorFriendlyChargeDamageMount = true
+    CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent = true
+    CrpgServerConfiguration.MirrorMountDamageMultiplier = 3
+    CrpgServerConfiguration.MirrorAgentDamageMultiplier = 3
+
 */
+
 public static class ChargeDamageControl
 {
-    public static bool DisableAllChargeDamage { get; set; } = false;
-    public static bool AllowChargeFriends { get; set; } = true;
-    public static bool AllowChargeEnemies { get; set; } = true;
-    public static bool MirrorFriendlyChargeDamageAgent { get; set; } = true;
-    public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
-    public static int MirrorMountDamageMultiplier { get; set; } = 3;
-    public static int MirrorAgentDamageMultiplier { get; set; } = 3;
-
     public static bool ShouldAllowChargeDamage(Agent attacker, Agent victim)
     {
-        if (DisableAllChargeDamage)
+        if (CrpgServerConfiguration.DisableAllChargeDamage)
         {
             return false;
         }
 
-        if (!AllowChargeEnemies && attacker.IsEnemyOf(victim))
+        if (!CrpgServerConfiguration.AllowChargeEnemies && attacker.IsEnemyOf(victim))
         {
             return false;
         }
 
-        if (!AllowChargeFriends && !attacker.IsEnemyOf(victim))
+        if (!CrpgServerConfiguration.AllowFriendlyChargeDamage && !attacker.IsEnemyOf(victim))
         {
             return false;
         }

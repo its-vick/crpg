@@ -47,6 +47,7 @@ public static class MissionInternalHelper
     }
 }
 
+
 /* original methods in TaleWorlds.MountAndBlade.Mission.cs
 
 private void RegisterBlow(

@@ -32,6 +32,13 @@ internal static class CrpgServerConfiguration
     public static bool FrozenBots { get; private set; } = false;
     public static int ControlledBotsCount { get; private set; } = 0;
     public static int BaseNakedEquipmentValue { get; private set; } = 10000;
+    public static bool DisableAllChargeDamage { get; set; } = false;
+    public static bool AllowFriendlyChargeDamage { get; set; } = true;
+    public static bool AllowChargeEnemies { get; set; } = true;
+    public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
+    public static bool MirrorFriendlyChargeDamageAgent { get; set; } = true;
+    public static int MirrorMountDamageMultiplier { get; set; } = 3;
+    public static int MirrorAgentDamageMultiplier { get; set; } = 3;
     public static Tuple<TimeSpan, TimeSpan, TimeZoneInfo>? HappyHours { get; private set; }
 
     [UsedImplicitly]
@@ -124,6 +131,7 @@ internal static class CrpgServerConfiguration
         TeamBalanceOnce = teamBalanceOnce;
         Debug.Print($"Set team balance once to {teamBalanceOnce}");
     }
+
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_frozen_bots", "Sets the Alarmed status of bots to off.")]
     private static void SetFrozenBots(string? frozenBotsStr)
@@ -138,6 +146,7 @@ internal static class CrpgServerConfiguration
         FrozenBots = frozenBots;
         Debug.Print($"Set team balance once to {frozenBots}");
     }
+
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_happy_hours", "Sets the happy hours. Format: HH:MM-HH:MM,TZ")]
     private static void SetHappyHours(string? happHoursStr)
@@ -164,6 +173,115 @@ internal static class CrpgServerConfiguration
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(match.Groups[3].Value);
         HappyHours = Tuple.Create(startTime, endTime, timeZone);
         Debug.Print($"Set happy hours from {startTime} to {endTime} in time zone {timeZone.Id}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_disable_all", "Disable all charge damage")]
+    private static void SetDisableAllChargeDamage(string? disableAllChargeDamageStr)
+    {
+        if (disableAllChargeDamageStr == null
+            || !bool.TryParse(disableAllChargeDamageStr, out bool disableAllChargeDamage))
+        {
+            Debug.Print($"Invalid disable all charge damage: {disableAllChargeDamageStr}");
+            return;
+        }
+
+        DisableAllChargeDamage = disableAllChargeDamage;
+        Debug.Print($"Set disable all charge damage to {disableAllChargeDamage}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_allow_enemies", "Allow charge damage to enemies")]
+    private static void SetAllowChargeEnemies(string? allowChargeEnemiesStr)
+    {
+        if (allowChargeEnemiesStr == null
+            || !bool.TryParse(allowChargeEnemiesStr, out bool allowChargeEnemies))
+        {
+            Debug.Print($"Invalid allow charge enemies: {allowChargeEnemiesStr}");
+            return;
+        }
+
+        AllowChargeEnemies = allowChargeEnemies;
+        Debug.Print($"Set allow charge enemies to {allowChargeEnemies}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_allow_friendly", "Allow charge damage to friendly agents")]
+    private static void SetAllowFriendlyChargeDamage(string? allowFriendlyChargeDamageStr)
+    {
+        if (allowFriendlyChargeDamageStr == null
+            || !bool.TryParse(allowFriendlyChargeDamageStr, out bool allowFriendlyChargeDamage))
+        {
+            Debug.Print($"Invalid allow friendly charge damage: {allowFriendlyChargeDamageStr}");
+            return;
+        }
+
+        AllowFriendlyChargeDamage = allowFriendlyChargeDamage;
+        Debug.Print($"Set allow friendly charge damage to {allowFriendlyChargeDamage}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_to_mount", "Mirror charge damage to mount for friendly fire")]
+    private static void SetMirrorFriendlyChargeDamageMount(string? mirrorFriendlyChargeDamageMountStr)
+    {
+        if (mirrorFriendlyChargeDamageMountStr == null
+            || !bool.TryParse(mirrorFriendlyChargeDamageMountStr, out bool mirrorFriendlyChargeDamageMount))
+        {
+            Debug.Print($"Invalid mirror friendly charge damage mount: {mirrorFriendlyChargeDamageMountStr}");
+            return;
+        }
+
+        MirrorFriendlyChargeDamageMount = mirrorFriendlyChargeDamageMount;
+        Debug.Print($"Set mirror friendly charge damage mount to {mirrorFriendlyChargeDamageMount}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_to_agent", "Mirror charge damage to agent for friendly fire")]
+    private static void SetMirrorFriendlyChargeDamageAgent(string? mirrorFriendlyChargeDamageAgentStr)
+    {
+        if (mirrorFriendlyChargeDamageAgentStr == null
+            || !bool.TryParse(mirrorFriendlyChargeDamageAgentStr, out bool mirrorFriendlyChargeDamageAgent))
+        {
+            Debug.Print($"Invalid mirror friendly charge damage agent: {mirrorFriendlyChargeDamageAgentStr}");
+            return;
+        }
+
+        MirrorFriendlyChargeDamageAgent = mirrorFriendlyChargeDamageAgent;
+        Debug.Print($"Set mirror friendly charge damage agent to {mirrorFriendlyChargeDamageAgent}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_mount_damage_multiplier", "Set the multiplier for charge damage to mount for friendly fire")]
+    private static void SetMirrorMountDamageMultiplier(string? mirrorMountDamageMultiplierStr)
+    {
+        if (mirrorMountDamageMultiplierStr == null
+            || !int.TryParse(mirrorMountDamageMultiplierStr, out int mirrorMountDamageMultiplier)
+            || mirrorMountDamageMultiplier < 1f
+            || mirrorMountDamageMultiplier > 10f)
+        {
+            Debug.Print($"Invalid mirror mount damage multiplier: {mirrorMountDamageMultiplierStr}");
+            return;
+        }
+
+        MirrorMountDamageMultiplier = mirrorMountDamageMultiplier;
+        Debug.Print($"Set mirror mount damage multiplier to {mirrorMountDamageMultiplier}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_agent_damage_multiplier", "Set the multiplier for charge damage to agent for friendly fire")]
+    private static void SetMirrorAgentDamageMultiplier(string? mirrorAgentDamageMultiplierStr)
+    {
+        if (mirrorAgentDamageMultiplierStr == null
+            || !int.TryParse(mirrorAgentDamageMultiplierStr, out int mirrorAgentDamageMultiplier)
+            || mirrorAgentDamageMultiplier < 1f
+            || mirrorAgentDamageMultiplier > 10f)
+        {
+            Debug.Print($"Invalid mirror agent damage multiplier: {mirrorAgentDamageMultiplierStr}");
+            return;
+        }
+
+        MirrorAgentDamageMultiplier = mirrorAgentDamageMultiplier;
+        Debug.Print($"Set mirror agent damage multiplier to {mirrorAgentDamageMultiplier}");
     }
 
     [UsedImplicitly]

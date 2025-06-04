@@ -6,8 +6,11 @@ using TaleWorlds.MountAndBlade;
 
 namespace Crpg.Module.HarmonyPatches;
 
+// Harmony patch for the ChargeDamageCallback method in the Mission class
+// Needs MissionInternalHelper.cs to reverse patch the GetAttackCollisionResults method and RegisterBlow method
+
 [HarmonyPatch(typeof(Mission))]
-public static class Mission_ChargeDamageCallback_Patch
+public static class ChargeDamageCallbackPatch
 {
     [HarmonyPatch("ChargeDamageCallback")]
     [HarmonyPrefix]
@@ -24,8 +27,10 @@ public static class Mission_ChargeDamageCallback_Patch
             return false;
         }
 
+#pragma warning disable IDE0018 // Inline variable declaration
         WeaponComponentData shieldOnBack;
         CombatLogData combatLog;
+#pragma warning restore IDE0018 // Inline variable declaration
 
         // Call the reverse patched method to get collision results
         __instance.GetAttackCollisionResults(
@@ -72,44 +77,41 @@ public static class Mission_ChargeDamageCallback_Patch
             blow.BlowFlag |= BlowFlags.KnockDown;
         }
 
+        // Handle friendly charge damage
         if (!attacker.IsEnemyOf(victim))
         {
             if (victim == null)
             {
-                Debug.Print($"Charge damage mirrored for {attacker.Name} hitting a null victim with damage {collisionData.InflictedDamage} --cancelling");
+                Debug.Print($"Friendly charge damage for {attacker.Name} hitting a null victim with damage {collisionData.InflictedDamage} --cancelling", 0, Debug.DebugColor.Red);
                 return true;
             }
 
-            if (ChargeDamageControl.MirrorFriendlyChargeDamageAgent)
+            if (CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent)
             {
-                float mirroredDamage = collisionData.InflictedDamage * ChargeDamageControl.MirrorAgentDamageMultiplier;
-
-                Debug.Print($"Charge damage mirrored for {attacker.Name} hitting {victim.Name} with damage {mirroredDamage}");
-                // Apply mirrored damage to attacker (rider)
-                CombatLogData dummyCombatLog = default;
-                Blow mirroredBlowToRider = new Blow(attacker.Index)
+                if (attacker.RiderAgent != null && attacker.RiderAgent.IsActive())
                 {
-                    DamageType = blow.DamageType,
-                    BaseMagnitude = mirroredDamage,
-                    InflictedDamage = (int)mirroredDamage,
-                    DamageCalculated = true,
-                    BlowFlag = BlowFlags.None,
-                    VictimBodyPart = BoneBodyPartType.Chest,
-                    Direction = -attacker.LookDirection,
-                };
-                AttackCollisionData dummyCollision = default;
-                dummyCollision.InflictedDamage = (int)mirroredDamage;
+                    Blow duplicateBlow = blow;
 
-                __instance.RegisterBlow(attacker, attacker, null!, mirroredBlowToRider, ref dummyCollision, in MissionWeapon.Invalid, ref dummyCombatLog);
+                    duplicateBlow.InflictedDamage = 0; // No damage to the victim in duplicate blow, only here to mirror the damage to the attacker agent
+                    duplicateBlow.SelfInflictedDamage = collisionData.InflictedDamage * CrpgServerConfiguration.MirrorAgentDamageMultiplier; // Adjust the multiplier as needed
+
+                    // Apply mirrored damage to attacker (rider) but not to the victim up here
+                    __instance.RegisterBlow(attacker.RiderAgent, victim!, null!, duplicateBlow, ref collisionData, in MissionWeapon.Invalid, ref combatLog);
+                }
             }
 
-            if (ChargeDamageControl.MirrorFriendlyChargeDamageMount)
+            if (CrpgServerConfiguration.MirrorFriendlyChargeDamageMount)
             {
-                // mirror the charge damage to the mount
-                blow.SelfInflictedDamage = collisionData.InflictedDamage * ChargeDamageControl.MirrorMountDamageMultiplier; // Adjust the multiplier as needed
+                Blow duplicateBlow = blow;
+
+                duplicateBlow.InflictedDamage = 0; // No damage to the victim in duplicate blow, only here to mirror the damage to the mount
+                duplicateBlow.SelfInflictedDamage = collisionData.InflictedDamage * CrpgServerConfiguration.MirrorMountDamageMultiplier; // Adjust the multiplier as needed
+
+                // Apply mirrored damage to mount but not to the victim up here
+                __instance.RegisterBlow(attacker, victim!, null!, duplicateBlow, ref collisionData, in MissionWeapon.Invalid, ref combatLog);
             }
 
-            // blow.InflictedDamage = 0f; // No damage to the victim in this case but i think we should still hurt them
+            // blow.InflictedDamage = 0f; // No damage to the victim in original blow to cancel victim being affected but i think we should still hurt them
         }
 
         __instance.RegisterBlow(attacker, victim!, null!, blow, ref collisionData, in MissionWeapon.Invalid, ref combatLog);
