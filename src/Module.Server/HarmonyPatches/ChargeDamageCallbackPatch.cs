@@ -21,7 +21,7 @@ namespace Crpg.Module.HarmonyPatches;
     crpg_charge_damage_mirror_agent_damage_multiplier = 3 // Multiplier for charge damage to rider
     crpg_charge_damage_mirror_mount_damage_maximum = 100 // Maximum damage to the mount
     crpg_charge_damage_mirror_mount_damage_maximum_percentage = 25f // Maximum percentage of horse max health that can be damaged
-    crpg_charge_damage_minimum_velocity_for_friendly_damage = 0.0f // Minimum speed for charge damage to affect teammates
+    crpg_charge_damage_min_velocity_for_friendly_damage = 0.0f // Minimum speed for charge damage to affect teammates
 
     crpg_charge_damage_settings // list all charge damage settings
 
@@ -79,8 +79,6 @@ public static class ChargeDamageCallbackPatch
          victim,
          null!, // GameEntity is not used in this context, so we can pass null
          1f,
-
-
          in MissionWeapon.Invalid,
          false,
          false,

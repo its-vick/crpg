@@ -193,7 +193,7 @@ internal static class CrpgServerConfiguration
         Debug.Print($"crpg_charge_damage_mirror_friendly_agent_damage_multiplier <1-100> | current: {MirrorAgentDamageMultiplier}");
         Debug.Print($"crpg_charge_damage_friendly_mount_damage_maximum <0-10000> | current: {MirrorMountDamageMaximum}");
         Debug.Print($"crpg_charge_damage_friendly_mount_damage_maximum_percentage <0-100> | current: {MirrorMountDamageMaximumPercentage}");
-        Debug.Print($"crpg_charge_damage_minimum_velocity_for_friendly_damage <float> | current: {MinimumChargeVelocityForFriendlyDamage}");
+        Debug.Print($"crpg_charge_damage_min_velocity_for_friendly_damage <float> | current: {MinimumChargeVelocityForFriendlyDamage}");
     }
 
     [UsedImplicitly]
