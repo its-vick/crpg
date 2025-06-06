@@ -7,6 +7,8 @@ using TaleWorlds.MountAndBlade;
 
 namespace Crpg.Module.HarmonyPatches;
 
+#pragma warning disable SA1313 // Parameter names should begin with lower-case letter
+
 [HarmonyPatch]
 public static class MissionInternalHelper
 {
@@ -47,6 +49,7 @@ public static class MissionInternalHelper
     }
 }
 
+#pragma warning restore SA1313 // Parameter names should begin with lower-case letter
 
 /* original methods in TaleWorlds.MountAndBlade.Mission.cs
 
