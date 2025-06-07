@@ -171,9 +171,10 @@ public static class ChargeDamageCallbackPatch
         }
 
         duplicateBlow.InflictedDamage = 0; // No damage to the victim in duplicate blow, only here to mirror the damage to the mount
-        duplicateBlow.SelfInflictedDamage = mountDamage; // Adjust the multiplier as needed
+        duplicateBlow.SelfInflictedDamage = mountDamage;
 
         // Apply mirrored damage to mount but not to the victim up here
+        Debug.Print($"Mirrored charge damage for {attacker.Name} attack damage {collisionData.InflictedDamage} to mount with max health {horseMaxHealth} and damage {duplicateBlow.SelfInflictedDamage}", 0, Debug.DebugColor.Green);
         __instance.RegisterBlow(attacker, victim!, null!, duplicateBlow, ref collisionData, in MissionWeapon.Invalid, ref combatLog);
       }
 
