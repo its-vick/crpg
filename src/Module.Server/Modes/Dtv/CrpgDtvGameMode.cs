@@ -118,6 +118,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
                 new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
                 new CrpgCommanderBehaviorClient(),
                 new AmmoQuiverChangeBehaviorClient(),
+                new ReportFriendlyFireBehaviorClient(), // Ctrl+M to report friendly fire
 #endif
                 dtvClient,
                 new MultiplayerTimerComponent(), // round timer
@@ -154,6 +155,7 @@ internal class CrpgDtvGameMode : MissionBasedMultiplayerGameMode
                 new DrowningBehavior(),
                 new PopulationBasedEntityVisibilityBehavior(lobbyComponent),
                 new CrpgCommanderBehaviorServer(),
+                new ReportFriendlyFireBehaviorServer(), // Ctrl+M to report friendly fire
 #else
                 new MultiplayerAchievementComponent(),
                 MissionMatchHistoryComponent.CreateIfConditionsAreMet(),

@@ -103,6 +103,7 @@ internal class CrpgTeamDeathmatchGameMode : MissionBasedMultiplayerGameMode
         CrpgTeamSelectServerComponent teamSelectComponent = new(warmupComponent, null, MultiplayerGameType.TeamDeathmatch);
         CrpgRewardServer rewardServer = new(crpgClient, _constants, warmupComponent, enableTeamHitCompensations: false, enableRating: true);
         CrpgTeamDeathmatchServer teamDeathmatchServer = new(scoreboardComponent, rewardServer);
+        
 
 #else
         CrpgWarmupComponent warmupComponent = new(_constants, notificationsComponent, null);
@@ -120,6 +121,7 @@ internal class CrpgTeamDeathmatchGameMode : MissionBasedMultiplayerGameMode
                 new CrpgCommanderBehaviorClient(),
                 new AmmoQuiverChangeBehaviorClient(),
                 new CrpgRespawnTimerClient(),
+                new ReportFriendlyFireBehaviorClient(), // Ctrl+M to report friendly fire
 #endif
                 new CrpgTeamDeathmatchClient(),
                 new MultiplayerTimerComponent(),
@@ -159,6 +161,7 @@ internal class CrpgTeamDeathmatchGameMode : MissionBasedMultiplayerGameMode
                 new CrpgCustomTeamBannersAndNamesServer(null),
                 new CrpgCommanderBehaviorServer(),
                 new CrpgRespawnTimerServer(teamDeathmatchServer, spawnBehavior),
+                new ReportFriendlyFireBehaviorServer(), // Ctrl+M to report friendly fire
 #else
                 new MultiplayerAchievementComponent(),
                 MissionMatchHistoryComponent.CreateIfConditionsAreMet(),

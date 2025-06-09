@@ -148,6 +148,7 @@ internal class CrpgBattleGameMode : MissionBasedMultiplayerGameMode
                     new MultiplayerMissionAgentVisualSpawnComponent(), // expose method to spawn an agent
                     new CrpgCommanderBehaviorClient(),
                     new AmmoQuiverChangeBehaviorClient(),
+                    new ReportFriendlyFireBehaviorClient(), // Ctrl+M to report friendly fire
 #endif
                     battleClient,
                     new MultiplayerTimerComponent(), // round timer
@@ -202,6 +203,7 @@ internal class CrpgBattleGameMode : MissionBasedMultiplayerGameMode
                     new BreakableWeaponsBehaviorServer(),
                     new CrpgCustomTeamBannersAndNamesServer(roundController),
                     new CrpgCommanderBehaviorServer(),
+                    new ReportFriendlyFireBehaviorServer(), // Ctrl+M to report friendly fire
 #else
                     new MultiplayerRoundComponent(),
                     new MultiplayerAchievementComponent(),
