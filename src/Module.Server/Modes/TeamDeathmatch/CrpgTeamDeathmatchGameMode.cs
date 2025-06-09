@@ -2,6 +2,7 @@ using Crpg.Module.Common;
 using Crpg.Module.Common.AmmoQuiverChange;
 using Crpg.Module.Common.Commander;
 using Crpg.Module.Common.HotConstants;
+using Crpg.Module.Common.ReportFriendlyFire;
 using Crpg.Module.Common.TeamSelect;
 using Crpg.Module.Modes.Warmup;
 using Crpg.Module.Notifications;

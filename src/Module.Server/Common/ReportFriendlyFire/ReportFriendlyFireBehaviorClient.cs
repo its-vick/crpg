@@ -1,9 +1,8 @@
 using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
-using TaleWorlds.MountAndBlade.Network.Messages;
 
-namespace Crpg.Module.Common;
+namespace Crpg.Module.Common.ReportFriendlyFire;
 
 internal class ReportFriendlyFireBehaviorClient : MissionNetwork
 {
@@ -57,7 +56,7 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
         {
             base.AddRemoveMessageHandlers(registerer);
             registerer.Register<FriendlyHitServerMessage>(HandleFriendlyHitMessage);
-            registerer.Register<FriendlyFireTextMessage>(HandleFriendlyFireTextMessage);
+            registerer.Register<FriendlyFireTextServerMessage>(HandleFriendlyFireTextMessage);
         }
     }
 
@@ -81,36 +80,8 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
         _lastHitMessageTime = DateTime.UtcNow;
     }
 
-    private void HandleFriendlyFireTextMessage(FriendlyFireTextMessage message)
+    private void HandleFriendlyFireTextMessage(FriendlyFireTextServerMessage message)
     {
         InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Red));
-    }
-}
-
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromClient)]
-internal sealed class TeamDamageReportClientMessage : GameNetworkMessage
-{
-    public TeamDamageReportClientMessage()
-    {
-    }
-
-    protected override bool OnRead()
-    {
-        return true; // No data to read, always valid
-    }
-
-    protected override void OnWrite()
-    {
-        // No data to write
-    }
-
-    protected override MultiplayerMessageFilter OnGetLogFilter()
-    {
-        return MultiplayerMessageFilter.General;
-    }
-
-    protected override string OnGetLogFormat()
-    {
-        return "TeamDamageReportClientMessage - Report Last Teamhit";
     }
 }

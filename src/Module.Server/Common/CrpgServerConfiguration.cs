@@ -33,6 +33,8 @@ internal static class CrpgServerConfiguration
     public static int ControlledBotsCount { get; private set; } = 0;
     public static int BaseNakedEquipmentValue { get; private set; } = 10000;
     public static Tuple<TimeSpan, TimeSpan, TimeZoneInfo>? HappyHours { get; private set; }
+    public static bool IsControlMReportEnabled { get; private set; } = true;
+    public static int ControlMReportMaxHitCount { get; private set; } = 5;
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_team_balancer_clan_group_size_penalty", "Apply a rating increase to members of the same clan that are playing in the same team")]
@@ -171,5 +173,37 @@ internal static class CrpgServerConfiguration
     private static void ApplyHarmonyPatches()
     {
         BannerlordPatches.Apply();
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_control_m_report", "Report friendly fire by pressing Ctrl+M")]
+    private static void SetControlMReportEnabled(string? isControlMReportEnabledStr)
+    {
+        if (isControlMReportEnabledStr == null
+            || !bool.TryParse(isControlMReportEnabledStr, out bool isControlMReportEnabled))
+        {
+            Debug.Print($"Invalid Control M Report setting: {isControlMReportEnabledStr} - must be true or false");
+            return;
+        }
+
+        IsControlMReportEnabled = isControlMReportEnabled;
+        Debug.Print($"Set Control M Report to {isControlMReportEnabled}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_control_m_report_max_hit_count", "Report friendly fire by pressing Ctrl+M, max hit count")]
+    private static void SetControlMReportMaxHitCount(string? controlMReportMaxHitCountStr)
+    {
+        if (controlMReportMaxHitCountStr == null
+            || !int.TryParse(controlMReportMaxHitCountStr, out int controlMReportMaxHitCount)
+            || controlMReportMaxHitCount < 1
+            || controlMReportMaxHitCount > 10)
+        {
+            Debug.Print($"Invalid Control M Report Max Hit Count setting: {controlMReportMaxHitCountStr} - must be and intenger between 1 and 10");
+            return;
+        }
+
+        ControlMReportMaxHitCount = controlMReportMaxHitCount;
+        Debug.Print($"Set Control M Report Max Hit Count to {controlMReportMaxHitCount}");
     }
 }

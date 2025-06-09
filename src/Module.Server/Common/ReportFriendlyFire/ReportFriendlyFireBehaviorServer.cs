@@ -2,13 +2,12 @@ using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Diamond;
-using TaleWorlds.MountAndBlade.Network.Messages;
 
-namespace Crpg.Module.Common;
+namespace Crpg.Module.Common.ReportFriendlyFire;
 
 internal class ReportFriendlyFireBehaviorServer : MissionNetwork
 {
-    private const int TeamHitLimit = 5;
+    // private const int TeamHitLimit = 5;
     private readonly Dictionary<NetworkCommunicator, int> _teamHitCounts = new();
     // Track which peer last team-damaged a specific peer
     private readonly Dictionary<NetworkCommunicator, NetworkCommunicator> _lastTeamHitBy = new();
@@ -41,6 +40,11 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
     {
         base.OnAgentHit(affectedAgent, affectorAgent, affectorWeapon, blow, attackCollisionData);
 
+        if (!CrpgServerConfiguration.IsControlMReportEnabled)
+        {
+            return; // If control M reporting is disabled, do not process team hits
+        }
+
         if (affectedAgent == null || affectorAgent == null || affectedAgent == affectorAgent)
         {
             Debug.Print("[TeamHitTracker] Invalid agents involved in hit.", 0, Debug.DebugColor.Red);
@@ -50,7 +54,7 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         if (!affectedAgent.IsPlayerControlled || !affectorAgent.IsPlayerControlled)
         {
             // Debug.Print($"[TeamHitTracker] {affectorAgent.Name} hit {affectedAgent.Name}, but one of them is not player controlled.", 0, Debug.DebugColor.Red);
-            // return;
+            return;
         }
 
         if (affectedAgent.IsMount) // Check if victim a mount
@@ -152,6 +156,12 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
 
     private void OnTeamDamageReportReceived(NetworkCommunicator peer, TeamDamageReportClientMessage message)
     {
+        if (!CrpgServerConfiguration.IsControlMReportEnabled)
+        {
+            SendClientDisplayMessage(peer, "Control M reporting is currently disabled on this server.");
+            return; // If control M reporting is disabled, do not process team hit reports
+        }
+
         if (peer == null || !peer.IsConnectionActive)
         {
             Debug.Print("[TeamHitTracker] Received team damage report from an inactive peer.", 0, Debug.DebugColor.Red);
@@ -188,14 +198,14 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         Debug.Print($"[TeamHitTracker] {attackingPeer.UserName} has {count} team hits.", 0, Debug.DebugColor.Yellow);
 
         // Notify the attacker about the report (server side)
-        SendClientDisplayMessage(attackingPeer, $"{peer.UserName} reported a team hit by you. You have {count}/{TeamHitLimit} team hits before kick.");
+        SendClientDisplayMessage(attackingPeer, $"{peer.UserName} reported a team hit by you. You have {count}/{CrpgServerConfiguration.ControlMReportMaxHitCount} team hits before kick.");
 
         // Notify the victim about the report
         SendClientDisplayMessage(peer, $"{attackingPeer.UserName} has been reported for team hitting you.");
 
-        if (count >= TeamHitLimit)
+        if (count >= CrpgServerConfiguration.ControlMReportMaxHitCount)
         {
-            Debug.Print($"[TeamHitTracker] Kicking {attackingPeer.UserName} for exceeding team hit limit ({TeamHitLimit}).", 0, Debug.DebugColor.Green);
+            Debug.Print($"[TeamHitTracker] Kicking {attackingPeer.UserName} for exceeding team hit limit ({CrpgServerConfiguration.ControlMReportMaxHitCount}).", 0, Debug.DebugColor.Green);
             KickHelper.Kick(attackingPeer, DisconnectType.KickedDueToFriendlyDamage);
         }
     }
@@ -208,7 +218,7 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         }
 
         GameNetwork.BeginModuleEventAsServer(peer);
-        GameNetwork.WriteMessage(new FriendlyFireTextMessage(displayText));
+        GameNetwork.WriteMessage(new FriendlyFireTextServerMessage(displayText));
         GameNetwork.EndModuleEventAsServer();
     }
 
@@ -218,80 +228,4 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         _lastTeamHitBy.Clear();
         Debug.Print("[TeamHitTracker] Round started, data cleared.", 0, Debug.DebugColor.Green);
     }
-}
-
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class FriendlyHitServerMessage : GameNetworkMessage
-{
-    public int AttackerAgentIndex { get; private set; }
-    public int Damage { get; private set; }
-
-    public FriendlyHitServerMessage()
-    {
-        // Default constructor for deserialization
-    }
-
-    public FriendlyHitServerMessage(int attackerAgentIndex, int damage)
-    {
-        AttackerAgentIndex = attackerAgentIndex;
-        Damage = damage;
-    }
-
-    protected override bool OnRead()
-    {
-        bool bufferReadValid = true;
-        AttackerAgentIndex = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.MaxNumberOfPlayersCompressionInfo, ref bufferReadValid);
-        Damage = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.DebugIntNonCompressionInfo, ref bufferReadValid);
-        return bufferReadValid;
-    }
-
-    protected override void OnWrite()
-    {
-        GameNetworkMessage.WriteIntToPacket(AttackerAgentIndex, CompressionBasic.MaxNumberOfPlayersCompressionInfo);
-        GameNetworkMessage.WriteIntToPacket(Damage, CompressionBasic.DebugIntNonCompressionInfo);
-    }
-
-    protected override MultiplayerMessageFilter OnGetLogFilter()
-    {
-        return MultiplayerMessageFilter.General;
-    }
-
-    protected override string OnGetLogFormat()
-    {
-        return $"[FriendlyFire] Hit by agent index {AttackerAgentIndex} for {Damage} damage";
-    }
-}
-
-[DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class FriendlyFireTextMessage : GameNetworkMessage
-{
-    public string Message { get; private set; }
-
-    public FriendlyFireTextMessage()
-    {
-        Message = string.Empty; // Default constructor for deserialization
-    }
-
-    public FriendlyFireTextMessage(string message)
-    {
-        Message = message;
-    }
-
-    protected override bool OnRead()
-    {
-        bool bufferReadValid = true;
-        Message = GameNetworkMessage.ReadStringFromPacket(ref bufferReadValid);
-        return bufferReadValid;
-    }
-
-    protected override void OnWrite()
-    {
-        GameNetworkMessage.WriteStringToPacket(Message);
-    }
-
-    protected override MultiplayerMessageFilter OnGetLogFilter()
-        => MultiplayerMessageFilter.General;
-
-    protected override string OnGetLogFormat()
-        => $"[SimpleTextMessage] {Message}";
 }
