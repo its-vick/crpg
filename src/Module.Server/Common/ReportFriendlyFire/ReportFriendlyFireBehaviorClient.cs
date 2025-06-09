@@ -76,6 +76,8 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
 
         InformationManager.DisplayMessage(new InformationMessage($"Team-hit by {name} for {message.Damage} damage. Press Ctrl+M to report within {ReportWindowSeconds} seconds.", Colors.Red));
 
+        // New team hit → allow a fresh Ctrl+M
+        _ctrlMWasPressed = false;
         // Set the timer for when the report window opens
         _lastHitMessageTime = DateTime.UtcNow;
     }
