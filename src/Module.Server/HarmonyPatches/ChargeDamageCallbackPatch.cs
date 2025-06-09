@@ -17,10 +17,10 @@ namespace Crpg.Module.HarmonyPatches;
     crpg_charge_damage_allow_friendly = True // Allow charge damage to friends
     crpg_charge_damage_mirror_friendly_to_mount = True // Mirror charge damage from friendlies to mount
     crpg_charge_damage_mirror_friendly_to_agent = True // Mirror charge damage from friendlies to rider
-    crpg_charge_damage_mirror_mount_damage_multiplier = 3 // Multiplier for charge damage to mount
+    crpg_charge_damage_mirror_mount_damage_multiplier = 5 // Multiplier for charge damage to mount
     crpg_charge_damage_mirror_agent_damage_multiplier = 3 // Multiplier for charge damage to rider
     crpg_charge_damage_mirror_mount_damage_maximum = 100 // Maximum damage to the mount
-    crpg_charge_damage_mirror_mount_damage_maximum_percentage = 25f // Maximum percentage of horse max health that can be damaged
+    crpg_charge_damage_mirror_mount_damage_maximum_percentage = 50f // Maximum percentage of horse max health that can be damaged
     crpg_charge_damage_min_velocity_for_friendly_damage = 0.0f // Minimum speed for charge damage to affect teammates
 
     crpg_charge_damage_settings // list all charge damage settings
@@ -39,8 +39,6 @@ namespace Crpg.Module.HarmonyPatches;
     CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage = 0.0f // Minimum speed for charge damage to affect teammates
 
 */
-#pragma warning disable SA1313 // Parameter names should begin with lower-case letter
-#pragma warning disable SA1114 // Parameter list should follow declaration
 #pragma warning disable IDE0018 // Inline variable declaration
 [HarmonyPatch(typeof(Mission))]
 public static class ChargeDamageCallbackPatch
@@ -48,7 +46,6 @@ public static class ChargeDamageCallbackPatch
   [HarmonyPatch("ChargeDamageCallback")]
   [HarmonyPrefix]
   private static bool Prefix(
-
       Mission __instance,
       ref AttackCollisionData collisionData,
       Blow blow,
@@ -187,9 +184,6 @@ public static class ChargeDamageCallbackPatch
     return false;
   }
 }
-
-#pragma warning restore SA1114 // Parameter list should follow declaration
-#pragma warning restore SA1313 // Parameter names should begin with lower-case letter
 
 /* original methods
 
