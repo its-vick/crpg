@@ -2,6 +2,7 @@
 using Crpg.Module.Api.Models.Items;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
+using TaleWorlds.MountAndBlade;
 using TaleWorlds.ObjectSystem;
 
 namespace Crpg.Module.Common;
@@ -57,6 +58,23 @@ internal static class CrpgCharacterBuilder
         {
             var index = ItemSlotToIndex[equippedItem.Slot];
             AddEquipment(equipment, index, equippedItem.UserItem.ItemId);
+        }
+
+        // Add random horse
+        var allHorses = MBObjectManager.Instance.GetObjectTypeList<ItemObject>()
+                        .Where(item => item.ItemType == ItemObject.ItemTypeEnum.Horse
+                                && item.IsMountable)
+                        .ToList();
+
+        if (allHorses.Count > 0)
+        {
+            // MBRandom.RandomInt(n) returns 0 <= x < n
+            var randomIndex = MBRandom.RandomInt(allHorses.Count);
+            var randomHorse = allHorses[randomIndex];
+
+            var horseElement = new EquipmentElement(randomHorse);
+            AddEquipment(equipment, EquipmentIndex.Horse, randomHorse.StringId);
+            // equipment.AddEquipmentToSlotWithoutAgent(EquipmentIndex.Horse, horseElement);
         }
 
         return equipment;
