@@ -59,20 +59,6 @@ internal static class CrpgCharacterBuilder
             AddEquipment(equipment, index, equippedItem.UserItem.ItemId);
         }
 
-        // Add random horse
-        var allHorses = MBObjectManager.Instance.GetObjectTypeList<ItemObject>()
-                        .Where(item => item.ItemType == ItemObject.ItemTypeEnum.Horse
-                                && item.IsMountable)
-                        .ToList();
-
-        if (allHorses.Count > 0)
-        {
-            int randomIndex = MBRandom.RandomInt(allHorses.Count);
-            var randomHorse = allHorses[randomIndex];
-            var horseElement = new EquipmentElement(randomHorse);
-            AddEquipment(equipment, EquipmentIndex.Horse, randomHorse.StringId);
-        }
-
         return equipment;
     }
 

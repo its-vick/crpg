@@ -39,7 +39,7 @@ internal static class CrpgServerConfiguration
     public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
     public static bool MirrorFriendlyChargeDamageAgent { get; set; } = false;
     public static int MirrorMountDamageMultiplier { get; set; } = 5;
-    public static int MirrorAgentDamageMultiplier { get; set; } = 0;
+    public static int MirrorAgentDamageMultiplier { get; set; } = 1;
     public static int MirrorMountDamageMaximum { get; set; } = 100;
     public static int MirrorMountDamageMinimum { get; set; } = 0;
     public static int MirrorMountDamageMaximumPercentage { get; set; } = 50;

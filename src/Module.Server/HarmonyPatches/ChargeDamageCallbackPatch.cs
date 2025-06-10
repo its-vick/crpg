@@ -16,9 +16,9 @@ namespace Crpg.Module.HarmonyPatches;
     crpg_charge_damage_allow_enemies True
     crpg_charge_damage_allow_friendly True
     crpg_charge_damage_mirror_friendly_to_mount True
-    crpg_charge_damage_mirror_friendly_to_agent True
+    crpg_charge_damage_mirror_friendly_to_agent False
     crpg_charge_damage_mirror_mount_multiplier 5
-    crpg_charge_damage_mirror_agent_multiplier 3
+    crpg_charge_damage_mirror_agent_multiplier 1
     crpg_charge_damage_mirror_mount_damage_max 100
     crpg_charge_damage_mirror_mount_damage_min 0
     crpg_charge_damage_mirror_mount_damage_max_percentage 50
