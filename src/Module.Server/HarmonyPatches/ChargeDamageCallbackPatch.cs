@@ -12,31 +12,33 @@ namespace Crpg.Module.HarmonyPatches;
 
   // Console commands/ServerConfigurations to control charge damage behavior
 
-    crpg_charge_damage_disable_all = False // Disable all charge damage ***overrides other flags***
-    crpg_charge_damage_allow_enemy = True // Allow charge damage to enemies
-    crpg_charge_damage_allow_friendly = True // Allow charge damage to friends
-    crpg_charge_damage_mirror_friendly_to_mount = True // Mirror charge damage from friendlies to mount
-    crpg_charge_damage_mirror_friendly_to_agent = True // Mirror charge damage from friendlies to rider
-    crpg_charge_damage_mirror_mount_damage_multiplier = 5 // Multiplier for charge damage to mount
-    crpg_charge_damage_mirror_agent_damage_multiplier = 3 // Multiplier for charge damage to rider
-    crpg_charge_damage_mirror_mount_damage_maximum = 100 // Maximum damage to the mount
-    crpg_charge_damage_mirror_mount_damage_maximum_percentage = 50f // Maximum percentage of horse max health that can be damaged
-    crpg_charge_damage_min_velocity_for_friendly_damage = 0.0f // Minimum speed for charge damage to affect teammates
+    crpg_charge_damage_disable_all False
+    crpg_charge_damage_allow_enemies True
+    crpg_charge_damage_allow_friendly True
+    crpg_charge_damage_mirror_friendly_to_mount True
+    crpg_charge_damage_mirror_friendly_to_agent True
+    crpg_charge_damage_mirror_mount_multiplier 5
+    crpg_charge_damage_mirror_agent_multiplier 3
+    crpg_charge_damage_mirror_mount_damage_max 100
+    crpg_charge_damage_mirror_mount_damage_min 0
+    crpg_charge_damage_mirror_mount_damage_max_percentage 50
+    crpg_charge_damage_min_velocity_for_friendly_damage 0.0
 
     crpg_charge_damage_settings // list all charge damage settings
 
     // ServerConfiguration values are used to control the charge damage behavior
 
-    CrpgServerConfiguration.DisableAllChargeDamage = false
-    CrpgServerConfiguration.AllowChargeEnemies = true
-    CrpgServerConfiguration.AllowFriendlyChargeDamage = true
-    CrpgServerConfiguration.MirrorFriendlyChargeDamageMount = true
-    CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent = false
-    CrpgServerConfiguration.MirrorMountDamageMultiplier = 4
-    CrpgServerConfiguration.MirrorAgentDamageMultiplier = 0 // No damage to the rider
+    CrpgServerConfiguration.DisableAllChargeDamage = false // Disable all charge damage ***overrides other flags***
+    CrpgServerConfiguration.AllowChargeEnemies = true // Allow charge damage to enemies
+    CrpgServerConfiguration.AllowFriendlyChargeDamage = true // Allow charge damage to friends
+    CrpgServerConfiguration.MirrorFriendlyChargeDamageMount = true // Mirror charge damage from friendlies to mount
+    CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent = false // Mirror charge damage from friendlies to rider
+    CrpgServerConfiguration.MirrorMountDamageMultiplier = 5 // Multiplier for charge damage to mount
+    CrpgServerConfiguration.MirrorAgentDamageMultiplier = 1 // Multiplier for charge damage to rider
     CrpgServerConfiguration.MirrorMountDamageMaximum = 100 // Maximum damage to the mount <int 0-1000>
+    CrpgServerConfiguration.MirrorMountDamageMinimum = 0 // Minimum damage to the mount <int 0-1000>
     CrpgServerConfiguration.MirrorMountDamageMaximumPercentage = 50 // Maximum percentage of horse max health that can be damaged in blow <int 0-100>
-    CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage = 0.0f // Minimum speed for charge damage to affect teammates
+    CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage = 0.0 // Minimum speed for charge damage to affect teammates <float>
 
 */
 #pragma warning disable IDE0018 // Inline variable declaration
@@ -57,7 +59,7 @@ public static class ChargeDamageCallbackPatch
       return false;
     }
 
-    // If the charge damage is disabled or for Circumstance, skip the rest of the method
+    // If the charge damage is disabled or for Circumstance, skip the rest of the method and original method
     if (attacker.RiderAgent != null &&
         (CrpgServerConfiguration.DisableAllChargeDamage || // no charge damage
         (!CrpgServerConfiguration.AllowChargeEnemies && attacker.IsEnemyOf(victim)) || // no charge damage to enemies
@@ -125,14 +127,9 @@ public static class ChargeDamageCallbackPatch
       }
 
       // Set Minimum speed for charge damage to affect teammates?
-      if (collisionData.ChargeVelocity > CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage)
+      if (collisionData.ChargeVelocity < CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage)
       {
-        Debug.Print($"Friendly charge damage for {attacker.Name} hitting {victim.Name} with damage {collisionData.InflictedDamage} at speed {collisionData.ChargeVelocity}", 0, Debug.DebugColor.Green);
-      }
-      else
-      {
-        Debug.Print($"Friendly charge damage for {attacker.Name} hitting {victim.Name} with damage {collisionData.InflictedDamage} at speed {collisionData.ChargeVelocity} --cancelling", 0, Debug.DebugColor.Red);
-        return true; // Cancel friendly charge damage if below minimum speed
+        return false;
       }
 
       if (CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent)
@@ -155,6 +152,12 @@ public static class ChargeDamageCallbackPatch
         int mountDamage = (int)(collisionData.InflictedDamage * CrpgServerConfiguration.MirrorMountDamageMultiplier);
         float horseMaxHealth = attacker.HealthLimit;
 
+        // Minium damage to the mount can be set here
+        if (mountDamage < CrpgServerConfiguration.MirrorMountDamageMinimum)
+        {
+          mountDamage = CrpgServerConfiguration.MirrorMountDamageMinimum;
+        }
+
         // Maximum damage allowed to the mount can be set here
         if (mountDamage > CrpgServerConfiguration.MirrorMountDamageMaximum)
         {
@@ -171,7 +174,6 @@ public static class ChargeDamageCallbackPatch
         duplicateBlow.SelfInflictedDamage = mountDamage;
 
         // Apply mirrored damage to mount but not to the victim up here
-        Debug.Print($"Mirrored charge damage for {attacker.Name} attack damage {collisionData.InflictedDamage} to mount with max health {horseMaxHealth} and damage {duplicateBlow.SelfInflictedDamage}", 0, Debug.DebugColor.Green);
         __instance.RegisterBlow(attacker, victim!, null!, duplicateBlow, ref collisionData, in MissionWeapon.Invalid, ref combatLog);
       }
 

@@ -38,8 +38,9 @@ internal static class CrpgServerConfiguration
     public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
     public static bool MirrorFriendlyChargeDamageAgent { get; set; } = false;
     public static int MirrorMountDamageMultiplier { get; set; } = 5;
-    public static int MirrorAgentDamageMultiplier { get; set; } = 3;
-    public static int MirrorMountDamageMaximum { get; set; } = 1000;
+    public static int MirrorAgentDamageMultiplier { get; set; } = 0;
+    public static int MirrorMountDamageMaximum { get; set; } = 100;
+    public static int MirrorMountDamageMinimum { get; set; } = 0;
     public static int MirrorMountDamageMaximumPercentage { get; set; } = 50;
     public static float MinimumChargeVelocityForFriendlyDamage { get; set; } = 0.0f;
 
@@ -189,10 +190,11 @@ internal static class CrpgServerConfiguration
         Debug.Print($"crpg_charge_damage_allow_friendly <True/False> | current: {AllowFriendlyChargeDamage}");
         Debug.Print($"crpg_charge_damage_mirror_friendly_to_mount <True/False> | current: {MirrorFriendlyChargeDamageMount}");
         Debug.Print($"crpg_charge_damage_mirror_friendly_to_agent <True/False> | current: {MirrorFriendlyChargeDamageAgent}");
-        Debug.Print($"crpg_charge_damage_mirror_friendly_mount_damage_multiplier <1-100> | current: {MirrorMountDamageMultiplier}");
-        Debug.Print($"crpg_charge_damage_mirror_friendly_agent_damage_multiplier <1-100> | current: {MirrorAgentDamageMultiplier}");
-        Debug.Print($"crpg_charge_damage_friendly_mount_damage_maximum <0-10000> | current: {MirrorMountDamageMaximum}");
-        Debug.Print($"crpg_charge_damage_friendly_mount_damage_maximum_percentage <0-100> | current: {MirrorMountDamageMaximumPercentage}");
+        Debug.Print($"crpg_charge_damage_mirror_mount_multiplier <1-100> | current: {MirrorMountDamageMultiplier}");
+        Debug.Print($"crpg_charge_damage_mirror_agent_multiplier <1-100> | current: {MirrorAgentDamageMultiplier}");
+        Debug.Print($"crpg_charge_damage_mirror_mount_damage_max <0-1000> | current: {MirrorMountDamageMaximum}");
+        Debug.Print($"crpg_charge_damage_mirror_mount_damage_min <0-1000> | current: {MirrorMountDamageMinimum}");
+        Debug.Print($"crpg_charge_damage_mirror_mount_damage_max_percentage <0-100> | current: {MirrorMountDamageMaximumPercentage}");
         Debug.Print($"crpg_charge_damage_min_velocity_for_friendly_damage <float> | current: {MinimumChargeVelocityForFriendlyDamage}");
     }
 
@@ -282,7 +284,7 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_mount_damage_multiplier", "Set the multiplier for charge damage to mount for friendly fire")]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_multiplier", "Set the multiplier for charge damage to mount for friendly fire")]
     private static void SetMirrorMountDamageMultiplier(string? mirrorMountDamageMultiplierStr = "")
     {
         if (string.IsNullOrWhiteSpace(mirrorMountDamageMultiplierStr) || mirrorMountDamageMultiplierStr == null
@@ -292,7 +294,7 @@ internal static class CrpgServerConfiguration
         {
             Debug.Print($"Invalid mirror mount damage multiplier: {mirrorMountDamageMultiplierStr}");
             Debug.Print("Please provide a valid integer value between 1 and 100.");
-            Debug.Print($"current value: crpg_charge_damage_mirror_friendly_mount_damage_multiplier {MirrorMountDamageMultiplier}");
+            Debug.Print($"current value: crpg_charge_damage_mirror_mount_multiplier {MirrorMountDamageMultiplier}");
             return;
         }
 
@@ -301,7 +303,7 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_agent_damage_multiplier", "Set the multiplier for charge damage to agent for friendly fire")]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_agent_multiplier", "Set the multiplier for charge damage to agent for friendly fire")]
     private static void SetMirrorAgentDamageMultiplier(string? mirrorAgentDamageMultiplierStr)
     {
         if (mirrorAgentDamageMultiplierStr == null || string.IsNullOrWhiteSpace(mirrorAgentDamageMultiplierStr)
@@ -311,7 +313,7 @@ internal static class CrpgServerConfiguration
         {
             Debug.Print($"Invalid mirror agent damage multiplier: {mirrorAgentDamageMultiplierStr}");
             Debug.Print("Please provide a valid integer value between 1 and 100.");
-            Debug.Print($" current value: crpg_charge_damage_mirror_friendly_agent_damage_multiplier {MirrorAgentDamageMultiplier}");
+            Debug.Print($" current value: crpg_charge_damage_mirror_agent_multiplier {MirrorAgentDamageMultiplier}");
             return;
         }
 
@@ -320,16 +322,17 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_charge_damage_friendly_mount_damage_maximum", "Set the maximum damage allowed to the mount for friendly fire")]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_max", "Set the maximum damage allowed to the mount for friendly fire")]
     private static void SetFriendlyMountDamageMaximum(string? friendlyMountDamageMaximumStr)
     {
         if (friendlyMountDamageMaximumStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMaximumStr)
             || !int.TryParse(friendlyMountDamageMaximumStr, out int friendlyMountDamageMaximum)
             || friendlyMountDamageMaximum < 0
-            || friendlyMountDamageMaximum > 10000)
+            || friendlyMountDamageMaximum > 1000)
         {
             Debug.Print($"Invalid friendly mount damage maximum: {friendlyMountDamageMaximumStr}");
-            Debug.Print("Please provide a valid integer value between 0 and 10000.");
+            Debug.Print("Please provide a valid integer value between 0 and 1000.");
+            Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_max {MirrorMountDamageMaximum}");
             return;
         }
 
@@ -338,7 +341,26 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_charge_damage_friendly_mount_damage_maximum_percentage", "Set the maximum damage allowed to the mount for friendly fire as a percentage of the mount's health")]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_min", "Set the minimum damage allowed to the mount for friendly fire")]
+    private static void SetFriendlyMountDamageMinimum(string? friendlyMountDamageMinimumStr)
+    {
+        if (friendlyMountDamageMinimumStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMinimumStr)
+            || !int.TryParse(friendlyMountDamageMinimumStr, out int friendlyMountDamageMinimum)
+            || friendlyMountDamageMinimum < 0
+            || friendlyMountDamageMinimum > 1000)
+        {
+            Debug.Print($"Invalid friendly mount damage minimum: {friendlyMountDamageMinimumStr}");
+            Debug.Print("Please provide a valid integer value between 0 and 1000.");
+            Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_min {MirrorMountDamageMinimum}");
+            return;
+        }
+
+        MirrorMountDamageMinimum = friendlyMountDamageMinimum;
+        Debug.Print($"Set friendly mount damage minimum to {friendlyMountDamageMinimum}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_max_percentage", "Set the maximum damage allowed to the mount for friendly fire as a percentage of the mount's health")]
     private static void SetFriendlyMountDamageMaximumPercentage(string? friendlyMountDamageMaximumPercentageStr)
     {
         if (friendlyMountDamageMaximumPercentageStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMaximumPercentageStr)
@@ -348,6 +370,7 @@ internal static class CrpgServerConfiguration
         {
             Debug.Print($"Invalid friendly mount damage maximum percentage: {friendlyMountDamageMaximumPercentageStr}");
             Debug.Print("Please provide a valid integer value between 0 and 100.");
+            Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_max_percentage {MirrorMountDamageMaximumPercentage}");
             return;
         }
 
@@ -365,6 +388,7 @@ internal static class CrpgServerConfiguration
         {
             Debug.Print($"Invalid minimum charge velocity for friendly damage: {minimumChargeVelocityForFriendlyDamageStr}");
             Debug.Print("Please provide a valid float value greater than or equal to 0.0.");
+            Debug.Print($"Current value: crpg_charge_damage_min_velocity_for_friendly_damage {MinimumChargeVelocityForFriendlyDamage}");
             return;
         }
 
