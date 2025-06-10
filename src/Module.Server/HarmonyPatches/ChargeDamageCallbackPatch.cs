@@ -26,8 +26,6 @@ namespace Crpg.Module.HarmonyPatches;
 
     crpg_charge_damage_settings // list all charge damage settings
 
-    // ServerConfiguration values are used to control the charge damage behavior
-
     CrpgServerConfiguration.DisableAllChargeDamage = false // Disable all charge damage ***overrides other flags***
     CrpgServerConfiguration.AllowChargeEnemies = true // Allow charge damage to enemies
     CrpgServerConfiguration.AllowFriendlyChargeDamage = true // Allow charge damage to friends
@@ -122,8 +120,7 @@ public static class ChargeDamageCallbackPatch
     {
       if (victim == null)
       {
-        Debug.Print($"Friendly charge damage for {attacker.Name} hitting a null victim with damage {collisionData.InflictedDamage} --cancelling", 0, Debug.DebugColor.Red);
-        return true;
+        return false;
       }
 
       // Set Minimum speed for charge damage to affect teammates?
