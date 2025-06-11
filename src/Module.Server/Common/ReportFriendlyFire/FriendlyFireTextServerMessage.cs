@@ -31,8 +31,12 @@ internal sealed class FriendlyFireTextServerMessage : GameNetworkMessage
     }
 
     protected override MultiplayerMessageFilter OnGetLogFilter()
-        => MultiplayerMessageFilter.General;
+    {
+        return MultiplayerMessageFilter.General;
+    }
 
     protected override string OnGetLogFormat()
-        => $"[FriendlyFireTextServerMessage] {Message}";
+    {
+        return $"[FriendlyFireTextServerMessage] {Message}";
+    }
 }

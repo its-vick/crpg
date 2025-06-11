@@ -6,6 +6,7 @@ namespace Crpg.Module.Common.ReportFriendlyFire;
 [DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
 internal sealed class FriendlyHitServerMessage : GameNetworkMessage
 {
+    public static CompressionInfo.Integer AgentIndexCompressionInfo = new CompressionInfo.Integer(-1, 1024);
     public int AttackerAgentIndex { get; private set; }
     public int Damage { get; private set; }
 
@@ -23,15 +24,15 @@ internal sealed class FriendlyHitServerMessage : GameNetworkMessage
     protected override bool OnRead()
     {
         bool bufferReadValid = true;
-        AttackerAgentIndex = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.MaxNumberOfPlayersCompressionInfo, ref bufferReadValid);
-        Damage = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.DebugIntNonCompressionInfo, ref bufferReadValid);
+        AttackerAgentIndex = GameNetworkMessage.ReadIntFromPacket(AgentIndexCompressionInfo, ref bufferReadValid);
+        Damage = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.AgentHitDamageCompressionInfo, ref bufferReadValid);
         return bufferReadValid;
     }
 
     protected override void OnWrite()
     {
-        GameNetworkMessage.WriteIntToPacket(AttackerAgentIndex, CompressionBasic.MaxNumberOfPlayersCompressionInfo);
-        GameNetworkMessage.WriteIntToPacket(Damage, CompressionBasic.DebugIntNonCompressionInfo);
+        GameNetworkMessage.WriteIntToPacket(AttackerAgentIndex, AgentIndexCompressionInfo);
+        GameNetworkMessage.WriteIntToPacket(Damage, CompressionBasic.AgentHitDamageCompressionInfo);
     }
 
     protected override MultiplayerMessageFilter OnGetLogFilter()

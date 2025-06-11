@@ -108,8 +108,9 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
 
         if (GameNetwork.IsServer)
         {
-            // Send a message to the server about the friendly hit
-            GameNetwork.BeginModuleEventAsServer(affectorNetworkPeer);
+            Debug.Print($"[TeamHitTracker] Sending Message From Server to victim.", 0, Debug.DebugColor.Red);
+            // Send a message From the server about the friendly hit
+            GameNetwork.BeginModuleEventAsServer(affectedNetworkPeer);
             GameNetwork.WriteMessage(new FriendlyHitServerMessage(affectorAgent.Index, attackCollisionData.InflictedDamage));
             GameNetwork.EndModuleEventAsServer();
         }
