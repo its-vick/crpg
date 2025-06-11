@@ -176,7 +176,7 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_control_m_report", "Report friendly fire by pressing Ctrl+M")]
+    [ConsoleCommandMethod("crpg_control_m_report_enabled", "Report friendly fire by pressing Ctrl+M")]
     private static void SetControlMReportEnabled(string? isControlMReportEnabledStr)
     {
         if (isControlMReportEnabledStr == null
@@ -187,7 +187,7 @@ internal static class CrpgServerConfiguration
         }
 
         IsControlMReportEnabled = isControlMReportEnabled;
-        Debug.Print($"Set Control M Report to {isControlMReportEnabled}");
+        Debug.Print($"--Changed: crpg_control_m_report_enabled to: {isControlMReportEnabled}");
     }
 
     [UsedImplicitly]
@@ -204,6 +204,6 @@ internal static class CrpgServerConfiguration
         }
 
         ControlMReportMaxHitCount = controlMReportMaxHitCount;
-        Debug.Print($"Set Control M Report Max Hit Count to {controlMReportMaxHitCount}");
+        Debug.Print($"--Changed crpg_control_m_report_max_hit_count to: {controlMReportMaxHitCount}");
     }
 }
