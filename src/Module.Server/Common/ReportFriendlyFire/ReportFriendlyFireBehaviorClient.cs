@@ -84,7 +84,25 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
 
     private void HandleFriendlyFireTextMessage(FriendlyFireTextServerMessage message)
     {
-        Color color = message.Color.ToColor();
-        InformationManager.DisplayMessage(new InformationMessage(message.Message, color));
+        MessageModes mode = message.Mode;
+        switch (mode)
+        {
+            case MessageModes.TeamDamageReportForVictim:
+                InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Red));
+                return;
+            case MessageModes.TeamDamageReportForAdmins:
+                InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Yellow));
+                return;
+            case MessageModes.TeamDamageReportForAttacker:
+                InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Green));
+                return;
+            case MessageModes.TeamDamageReportForAll:
+                InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Blue));
+                return;
+            case MessageModes.Default:
+            default:
+                // Default case, just display the message
+                break;
+        }
     }
 }

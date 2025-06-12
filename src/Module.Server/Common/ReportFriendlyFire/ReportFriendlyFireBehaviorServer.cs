@@ -9,7 +9,11 @@ namespace Crpg.Module.Common.ReportFriendlyFire;
 internal class ReportFriendlyFireBehaviorServer : MissionNetwork
 {
     // private const int TeamHitLimit = 5;
+
+    // Track team hit counts for each player
     private readonly Dictionary<NetworkCommunicator, int> _teamHitCounts = new();
+    // Track when a player last hit a teammate
+    private readonly Dictionary<NetworkCommunicator, DateTime> _lastTeamHitTimes = new();
     // Track which peer last team-damaged a specific peer
     private readonly Dictionary<NetworkCommunicator, NetworkCommunicator> _lastTeamHitBy = new();
     private MultiplayerRoundController? _roundController;
@@ -213,13 +217,13 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         {
             Debug.Print($"[TeamHitTracker] Kicking {attackingPeer.UserName} for exceeding team hit limit ({CrpgServerConfiguration.ControlMReportMaxHitCount}).", 0, Debug.DebugColor.Green);
 
-            SendClientDisplayMessageToAll($"{attackingPeer.UserName} has been kicked for exceeding the team hit limit of {CrpgServerConfiguration.ControlMReportMaxHitCount}.");
+            SendClientDisplayMessageToAllExcept(attackingPeer, $"{attackingPeer.UserName} has been kicked for exceeding the team hit limit of {CrpgServerConfiguration.ControlMReportMaxHitCount}.");
 
             KickHelper.Kick(attackingPeer, DisconnectType.KickedDueToFriendlyDamage);
         }
     }
 
-    private void SendClientDisplayMessage(NetworkCommunicator peer, string displayText, FriendlyFireTextColors textColor = FriendlyFireTextColors.Red)
+    private void SendClientDisplayMessage(NetworkCommunicator peer, string displayText, MessageModes messageMode = MessageModes.Default)
     {
         if (peer == null || !peer.IsConnectionActive)
         {
@@ -227,17 +231,28 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         }
 
         GameNetwork.BeginModuleEventAsServer(peer);
-        GameNetwork.WriteMessage(new FriendlyFireTextServerMessage(displayText, textColor));
+        GameNetwork.WriteMessage(new FriendlyFireTextServerMessage(displayText, messageMode));
         GameNetwork.EndModuleEventAsServer();
     }
 
-    private void SendClientDisplayMessageToAll(string displayText, FriendlyFireTextColors textColor = FriendlyFireTextColors.Red)
+    private void SendClientDisplayMessageToAll(string displayText, MessageModes messageMode = MessageModes.TeamDamageReportForAll)
     {
         foreach (var peer in GameNetwork.NetworkPeers)
         {
             if (peer.IsConnectionActive)
             {
-                SendClientDisplayMessage(peer, displayText, textColor);
+                SendClientDisplayMessage(peer, displayText, messageMode);
+            }
+        }
+    }
+
+    private void SendClientDisplayMessageToAllExcept(NetworkCommunicator excludedPeer, string displayText, MessageModes messageMode = MessageModes.Default)
+    {
+        foreach (var peer in GameNetwork.NetworkPeers)
+        {
+            if (peer.IsConnectionActive && peer != excludedPeer)
+            {
+                SendClientDisplayMessage(peer, displayText, messageMode);
             }
         }
     }
@@ -251,7 +266,7 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
                 var crpgUser = peer.GetComponent<CrpgPeer>()?.User;
                 if (crpgUser != null && crpgUser.Role is CrpgUserRole.Moderator or CrpgUserRole.Admin)
                 {
-                    SendClientDisplayMessage(peer, displayText, FriendlyFireTextColors.Magenta);
+                    SendClientDisplayMessage(peer, displayText, MessageModes.TeamDamageReportForAdmins);
                 }
             }
         }
