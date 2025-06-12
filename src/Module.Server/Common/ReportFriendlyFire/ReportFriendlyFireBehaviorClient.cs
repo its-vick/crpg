@@ -74,7 +74,7 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
         Agent? attacker = Mission.Current?.Agents.FirstOrDefault(a => a.Index == message.AttackerAgentIndex);
         string name = attacker?.Name?.ToString() ?? "Unknown";
 
-        InformationManager.DisplayMessage(new InformationMessage($"Team-hit by {name} for {message.Damage} damage. Press Ctrl+M to report within {ReportWindowSeconds} seconds.", Colors.Red));
+        InformationManager.DisplayMessage(new InformationMessage($"Teamwounded by {name} for {message.Damage} damage. Press Ctrl+M to mark that you believe this was intentional within {ReportWindowSeconds} seconds.", Colors.Red));
 
         // New team hit → allow a fresh Ctrl+M
         _ctrlMWasPressed = false;
@@ -84,6 +84,7 @@ internal class ReportFriendlyFireBehaviorClient : MissionNetwork
 
     private void HandleFriendlyFireTextMessage(FriendlyFireTextServerMessage message)
     {
-        InformationManager.DisplayMessage(new InformationMessage(message.Message, Colors.Red));
+        Color color = message.Color.ToColor();
+        InformationManager.DisplayMessage(new InformationMessage(message.Message, color));
     }
 }

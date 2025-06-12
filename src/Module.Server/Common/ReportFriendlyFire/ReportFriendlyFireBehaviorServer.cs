@@ -1,3 +1,4 @@
+using Crpg.Module.Api.Models.Users;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
@@ -51,12 +52,6 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
             return;
         }
 
-        if (!affectedAgent.IsPlayerControlled || !affectorAgent.IsPlayerControlled)
-        {
-            // Debug.Print($"[TeamHitTracker] {affectorAgent.Name} hit {affectedAgent.Name}, but one of them is not player controlled.", 0, Debug.DebugColor.Red);
-            return;
-        }
-
         if (affectedAgent.IsMount) // Check if victim a mount
         {
             Debug.Print($"[TeamHitTracker] {affectedAgent.Name} is a mount", 0, Debug.DebugColor.Red);
@@ -85,6 +80,13 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
                 Debug.Print($"[TeamHitTracker] friendly mount with no rider.", 0, Debug.DebugColor.Red);
                 return; // ignore hits from mounts without riders
             }
+        }
+
+        // Check if both agents are player controlled, use rider (set above) if mount was the attacker or victim
+        if (!affectedAgent.IsPlayerControlled || !affectorAgent.IsPlayerControlled)
+        {
+            Debug.Print($"[TeamHitTracker] {affectorAgent.Name} hit {affectedAgent.Name}, but one of them is not player controlled.", 0, Debug.DebugColor.Red);
+            return;
         }
 
         if (affectedAgent.Team?.TeamIndex != affectorAgent.Team?.TeamIndex)
@@ -137,7 +139,7 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
             .ToList();
         foreach (var victimPeer in victims)
         {
-            SendClientDisplayMessage(victimPeer, $"Your last team–hit attacker {networkPeer.UserName} has left the match.");
+            SendClientDisplayMessage(victimPeer, $"Your last teamhit attacker {networkPeer.UserName} has left the match.");
             _lastTeamHitBy.Remove(victimPeer);
         }
     }
@@ -199,19 +201,25 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         Debug.Print($"[TeamHitTracker] {attackingPeer.UserName} has {count} team hits.", 0, Debug.DebugColor.Yellow);
 
         // Notify the attacker about the report (server side)
-        SendClientDisplayMessage(attackingPeer, $"{peer.UserName} reported a team hit by you. You have {count}/{CrpgServerConfiguration.ControlMReportMaxHitCount} team hits before kick.");
+        SendClientDisplayMessage(attackingPeer, $"{peer.UserName} has reported you for team hitting them. You have {count}/{CrpgServerConfiguration.ControlMReportMaxHitCount} team hits before getting kicked.");
 
         // Notify the victim about the report
         SendClientDisplayMessage(peer, $"{attackingPeer.UserName} has been reported for team hitting you.");
 
+        // Notify all admins about the report
+        SendClientDisplayMessageToAdmins($"{attackingPeer.UserName} has been reported for team hitting {peer.UserName}. [{count}/{CrpgServerConfiguration.ControlMReportMaxHitCount}]");
+
         if (count >= CrpgServerConfiguration.ControlMReportMaxHitCount)
         {
             Debug.Print($"[TeamHitTracker] Kicking {attackingPeer.UserName} for exceeding team hit limit ({CrpgServerConfiguration.ControlMReportMaxHitCount}).", 0, Debug.DebugColor.Green);
+
+            SendClientDisplayMessageToAll($"{attackingPeer.UserName} has been kicked for exceeding the team hit limit of {CrpgServerConfiguration.ControlMReportMaxHitCount}.");
+
             KickHelper.Kick(attackingPeer, DisconnectType.KickedDueToFriendlyDamage);
         }
     }
 
-    private void SendClientDisplayMessage(NetworkCommunicator peer, string displayText)
+    private void SendClientDisplayMessage(NetworkCommunicator peer, string displayText, FriendlyFireTextColors textColor = FriendlyFireTextColors.Red)
     {
         if (peer == null || !peer.IsConnectionActive)
         {
@@ -219,8 +227,34 @@ internal class ReportFriendlyFireBehaviorServer : MissionNetwork
         }
 
         GameNetwork.BeginModuleEventAsServer(peer);
-        GameNetwork.WriteMessage(new FriendlyFireTextServerMessage(displayText));
+        GameNetwork.WriteMessage(new FriendlyFireTextServerMessage(displayText, textColor));
         GameNetwork.EndModuleEventAsServer();
+    }
+
+    private void SendClientDisplayMessageToAll(string displayText, FriendlyFireTextColors textColor = FriendlyFireTextColors.Red)
+    {
+        foreach (var peer in GameNetwork.NetworkPeers)
+        {
+            if (peer.IsConnectionActive)
+            {
+                SendClientDisplayMessage(peer, displayText, textColor);
+            }
+        }
+    }
+
+    private void SendClientDisplayMessageToAdmins(string displayText)
+    {
+        foreach (var peer in GameNetwork.NetworkPeers)
+        {
+            if (peer.IsConnectionActive)
+            {
+                var crpgUser = peer.GetComponent<CrpgPeer>()?.User;
+                if (crpgUser != null && crpgUser.Role is CrpgUserRole.Moderator or CrpgUserRole.Admin)
+                {
+                    SendClientDisplayMessage(peer, displayText, FriendlyFireTextColors.Magenta);
+                }
+            }
+        }
     }
 
     private void OnRoundStarted()

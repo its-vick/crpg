@@ -2,6 +2,7 @@
 using Crpg.Module.Api.Models;
 using Crpg.Module.HarmonyPatches;
 using JetBrains.Annotations;
+using NetworkMessages.FromServer;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 
@@ -35,6 +36,7 @@ internal static class CrpgServerConfiguration
     public static Tuple<TimeSpan, TimeSpan, TimeZoneInfo>? HappyHours { get; private set; }
     public static bool IsControlMReportEnabled { get; private set; } = true;
     public static int ControlMReportMaxHitCount { get; private set; } = 5;
+    public static bool IsControlMReportNotifyAdminsEnabled { get; private set; } = true;
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_team_balancer_clan_group_size_penalty", "Apply a rating increase to members of the same clan that are playing in the same team")]
@@ -205,5 +207,20 @@ internal static class CrpgServerConfiguration
 
         ControlMReportMaxHitCount = controlMReportMaxHitCount;
         Debug.Print($"--Changed crpg_control_m_report_max_hit_count to: {controlMReportMaxHitCount}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_control_m_report_notifyadmins", "Report friendly fire by pressing Ctrl+M, notify admins")]
+    private static void SetControlMReportNotifyAdmins(string? controlMReportNotifyAdminsStr)
+    {
+        if (controlMReportNotifyAdminsStr == null
+            || !bool.TryParse(controlMReportNotifyAdminsStr, out bool controlMReportNotifyAdmins))
+        {
+            Debug.Print($"Invalid Control M Report Notify Admins setting: {controlMReportNotifyAdminsStr} - must be true or false");
+            return;
+        }
+
+        IsControlMReportNotifyAdminsEnabled = controlMReportNotifyAdmins;
+        Debug.Print($"--Changed crpg_control_m_report_notifyadmins to: {controlMReportNotifyAdmins}");
     }
 }
