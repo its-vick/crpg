@@ -34,9 +34,11 @@ internal static class CrpgServerConfiguration
     public static int ControlledBotsCount { get; private set; } = 0;
     public static int BaseNakedEquipmentValue { get; private set; } = 10000;
     public static Tuple<TimeSpan, TimeSpan, TimeZoneInfo>? HappyHours { get; private set; }
-    public static bool IsControlMReportEnabled { get; private set; } = true;
-    public static int ControlMReportMaxHitCount { get; private set; } = 5;
-    public static bool IsControlMReportNotifyAdminsEnabled { get; private set; } = true;
+    public static bool IsFriendlyFireReportEnabled { get; private set; } = true;
+    public static int FriendlyFireReportMaxHits { get; private set; } = 5;
+    public static bool IsFriendlyFireReportNotifyAdminsEnabled { get; private set; } = true;
+    public static int FriendlyFireReportDecaySeconds { get; private set; } = 60;
+    public static int FriendlyFireReportWindowSeconds { get; private set; } = 5;
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_team_balancer_clan_group_size_penalty", "Apply a rating increase to members of the same clan that are playing in the same team")]
@@ -178,49 +180,84 @@ internal static class CrpgServerConfiguration
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_control_m_report_enabled", "Report friendly fire by pressing Ctrl+M")]
-    private static void SetControlMReportEnabled(string? isControlMReportEnabledStr)
+    [ConsoleCommandMethod("crpg_ff_report_enabled", "Report friendly fire by pressing Ctrl+M")]
+    private static void SetFriendlyFireReportEnabled(string? inputStr)
     {
-        if (isControlMReportEnabledStr == null
-            || !bool.TryParse(isControlMReportEnabledStr, out bool isControlMReportEnabled))
+        if (inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid Control M Report setting: {isControlMReportEnabledStr} - must be true or false");
+            Debug.Print($"Invalid Friendly Fire Report Enabled/Disabled setting: {inputStr} - must be true or false");
             return;
         }
 
-        IsControlMReportEnabled = isControlMReportEnabled;
-        Debug.Print($"--Changed: crpg_control_m_report_enabled to: {isControlMReportEnabled}");
+        IsFriendlyFireReportEnabled = outputBool;
+        Debug.Print($"--Changed: crpg_ff_report_enabled to: {outputBool}");
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_control_m_report_max_hit_count", "Report friendly fire by pressing Ctrl+M, max hit count")]
-    private static void SetControlMReportMaxHitCount(string? controlMReportMaxHitCountStr)
+    [ConsoleCommandMethod("crpg_ff_report_max_hit_count", "Report friendly fire by pressing Ctrl+M, max hit count")]
+    private static void SetFriendlyFireReportMaxHits(string? inputStr)
     {
-        if (controlMReportMaxHitCountStr == null
-            || !int.TryParse(controlMReportMaxHitCountStr, out int controlMReportMaxHitCount)
-            || controlMReportMaxHitCount < 1
-            || controlMReportMaxHitCount > 10)
+        if (inputStr == null
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 1
+            || outputInt > 10)
         {
-            Debug.Print($"Invalid Control M Report Max Hit Count setting: {controlMReportMaxHitCountStr} - must be and intenger between 1 and 10");
+            Debug.Print($"Invalid Friendly Fire Report Max Hit Count setting: {inputStr} - must be an int between 1 and 10");
             return;
         }
 
-        ControlMReportMaxHitCount = controlMReportMaxHitCount;
-        Debug.Print($"--Changed crpg_control_m_report_max_hit_count to: {controlMReportMaxHitCount}");
+        FriendlyFireReportMaxHits = outputInt;
+        Debug.Print($"--Changed crpg_ff_report_max_hit_count to: {outputInt}");
     }
 
     [UsedImplicitly]
-    [ConsoleCommandMethod("crpg_control_m_report_notifyadmins", "Report friendly fire by pressing Ctrl+M, notify admins")]
-    private static void SetControlMReportNotifyAdmins(string? controlMReportNotifyAdminsStr)
+    [ConsoleCommandMethod("crpg_ff_report_notify_admins", "Report friendly fire by pressing Ctrl+M, notify admins")]
+    private static void SetControlMReportNotifyAdmins(string? inputStr)
     {
-        if (controlMReportNotifyAdminsStr == null
-            || !bool.TryParse(controlMReportNotifyAdminsStr, out bool controlMReportNotifyAdmins))
+        if (inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid Control M Report Notify Admins setting: {controlMReportNotifyAdminsStr} - must be true or false");
+            Debug.Print($"Invalid Control M Report Notify Admins setting: {inputStr} - must be true or false");
             return;
         }
 
-        IsControlMReportNotifyAdminsEnabled = controlMReportNotifyAdmins;
-        Debug.Print($"--Changed crpg_control_m_report_notifyadmins to: {controlMReportNotifyAdmins}");
+        IsFriendlyFireReportNotifyAdminsEnabled = outputBool;
+        Debug.Print($"--Changed crpg_ff_report_notify_admins to: {outputBool}");
+    }
+
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_ff_report_decay_seconds", "Report friendly fire by pressing Ctrl+M, decay time of a reported teamhit")]
+    private static void SetFriendlyFireReportDecaySeconds(string? inputStr)
+    {
+        if (inputStr == null
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 0
+            || outputInt > 200)
+        {
+            Debug.Print($"Invalid Control M Report decay seconds setting: {inputStr} - must be integer between 0 and 200");
+            return;
+        }
+
+        FriendlyFireReportDecaySeconds = outputInt;
+        Debug.Print($"--Changed crpg_ff_report_decay_seconds to: {outputInt}");
+    }
+
+    // FriendlyFireReportWindowSeconds
+    [UsedImplicitly]
+    [ConsoleCommandMethod("crpg_ff_report_window_seconds", "Report friendly fire by pressing Ctrl+M, window of time to report a teamhit")]
+    private static void SetFriendlyFireReportWindowSeconds(string? inputStr)
+    {
+        if (inputStr == null
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 0
+            || outputInt > 200)
+        {
+            Debug.Print($"Invalid Control M Report window seconds setting: {inputStr} - must be integer between 0 and 200");
+            return;
+        }
+
+        FriendlyFireReportWindowSeconds = outputInt;
+        Debug.Print($"--Changed crpg_ff_report_window_seconds to: {outputInt}");
     }
 }

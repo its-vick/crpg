@@ -1,12 +1,12 @@
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Network.Messages;
 
-namespace Crpg.Module.Common.ReportFriendlyFire;
+namespace Crpg.Module.Common.FriendlyFireReport;
 
 [DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromClient)]
-internal sealed class TeamDamageReportClientMessage : GameNetworkMessage
+internal sealed class FriendlyFireReportClientMessage : GameNetworkMessage
 {
-    public TeamDamageReportClientMessage()
+    public FriendlyFireReportClientMessage()
     {
     }
 
@@ -27,6 +27,6 @@ internal sealed class TeamDamageReportClientMessage : GameNetworkMessage
 
     protected override string OnGetLogFormat()
     {
-        return "TeamDamageReportClientMessage - Report Last Teamhit";
+        return "FriendlyFireReportClientMessage - Report Last Teamhit";
     }
 }

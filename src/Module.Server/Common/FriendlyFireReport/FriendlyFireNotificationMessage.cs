@@ -2,21 +2,25 @@ using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Network.Messages;
 
-namespace Crpg.Module.Common.ReportFriendlyFire;
+namespace Crpg.Module.Common.FriendlyFireReport;
 
 [DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class FriendlyFireTextServerMessage : GameNetworkMessage
+internal sealed class FriendlyFireNotificationMessage : GameNetworkMessage
 {
     public string Message { get; private set; }
-    public MessageModes Mode { get; private set; }
+    public FriendlyFireMessageMode Mode { get; private set; }
+    private readonly CompressionInfo.Integer messageModeCompressionInfo = new(
+        0,
+        (int)Enum.GetValues(typeof(FriendlyFireMessageMode)).Cast<FriendlyFireMessageMode>().Max(),
+        true);
 
-    public FriendlyFireTextServerMessage()
+    public FriendlyFireNotificationMessage()
     {
         Message = string.Empty; // Default constructor for deserialization
-        Mode = MessageModes.Default; // Default mode
+        Mode = FriendlyFireMessageMode.Default; // Default mode
     }
 
-    public FriendlyFireTextServerMessage(string message, MessageModes mode)
+    public FriendlyFireNotificationMessage(string message, FriendlyFireMessageMode mode)
     {
         Message = message;
         Mode = mode;
@@ -26,14 +30,14 @@ internal sealed class FriendlyFireTextServerMessage : GameNetworkMessage
     {
         bool bufferReadValid = true;
         Message = GameNetworkMessage.ReadStringFromPacket(ref bufferReadValid);
-        Mode = (MessageModes)GameNetworkMessage.ReadIntFromPacket(new CompressionInfo.Integer(0, sizeof(MessageModes), true), ref bufferReadValid);
+        Mode = (FriendlyFireMessageMode)GameNetworkMessage.ReadIntFromPacket(messageModeCompressionInfo, ref bufferReadValid);
         return bufferReadValid;
     }
 
     protected override void OnWrite()
     {
         GameNetworkMessage.WriteStringToPacket(Message);
-        GameNetworkMessage.WriteIntToPacket((int)Mode, new CompressionInfo.Integer(0, sizeof(MessageModes), true));
+        GameNetworkMessage.WriteIntToPacket((int)Mode, messageModeCompressionInfo);
     }
 
     protected override MultiplayerMessageFilter OnGetLogFilter()
@@ -43,6 +47,6 @@ internal sealed class FriendlyFireTextServerMessage : GameNetworkMessage
 
     protected override string OnGetLogFormat()
     {
-        return $"[FriendlyFireTextServerMessage] ({Mode}) {Message}";
+        return $"[FriendlyFireNotificationMessage ] ({Mode}) {Message}";
     }
 }

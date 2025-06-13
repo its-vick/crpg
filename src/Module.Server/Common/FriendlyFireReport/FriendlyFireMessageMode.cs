@@ -1,4 +1,6 @@
-public enum MessageModes : byte
+namespace Crpg.Module.Common.FriendlyFireReport;
+
+public enum FriendlyFireMessageMode : byte
 {
     Default = 0,
     TeamDamageReportForVictim,
@@ -6,4 +8,6 @@ public enum MessageModes : byte
     TeamDamageReportForAttacker,
     TeamDamageReportForAll,
     TeamDamageReportAttackerDisconnected,
+    TeamDamageReportKick,
+    TeamDamageReportError,
 }

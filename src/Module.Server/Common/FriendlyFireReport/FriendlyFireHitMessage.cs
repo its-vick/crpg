@@ -1,23 +1,26 @@
 using TaleWorlds.MountAndBlade;
 using TaleWorlds.MountAndBlade.Network.Messages;
 
-namespace Crpg.Module.Common.ReportFriendlyFire;
+namespace Crpg.Module.Common.FriendlyFireReport;
 
 [DefineGameNetworkMessageTypeForMod(GameNetworkMessageSendType.FromServer)]
-internal sealed class FriendlyHitServerMessage : GameNetworkMessage
+internal sealed class FriendlyFireHitMessage : GameNetworkMessage
 {
     public int AttackerAgentIndex { get; private set; }
     public int Damage { get; private set; }
+    public int ReportWindow { get; private set; }
+    private readonly CompressionInfo.Integer reportWindowCompressionInfo = new(0, 200, true);
 
-    public FriendlyHitServerMessage()
+    public FriendlyFireHitMessage()
     {
         // Default constructor for deserialization
     }
 
-    public FriendlyHitServerMessage(int attackerAgentIndex, int damage)
+    public FriendlyFireHitMessage(int attackerAgentIndex, int damage, int reportWindow)
     {
         AttackerAgentIndex = attackerAgentIndex;
         Damage = damage;
+        ReportWindow = reportWindow;
     }
 
     protected override bool OnRead()
@@ -25,6 +28,7 @@ internal sealed class FriendlyHitServerMessage : GameNetworkMessage
         bool bufferReadValid = true;
         AttackerAgentIndex = GameNetworkMessage.ReadAgentIndexFromPacket(ref bufferReadValid);
         Damage = GameNetworkMessage.ReadIntFromPacket(CompressionBasic.AgentHitDamageCompressionInfo, ref bufferReadValid);
+        ReportWindow = GameNetworkMessage.ReadIntFromPacket(reportWindowCompressionInfo, ref bufferReadValid);
         return bufferReadValid;
     }
 
@@ -32,6 +36,7 @@ internal sealed class FriendlyHitServerMessage : GameNetworkMessage
     {
         GameNetworkMessage.WriteAgentIndexToPacket(AttackerAgentIndex);
         GameNetworkMessage.WriteIntToPacket(Damage, CompressionBasic.AgentHitDamageCompressionInfo);
+        GameNetworkMessage.WriteIntToPacket(ReportWindow, reportWindowCompressionInfo);
     }
 
     protected override MultiplayerMessageFilter OnGetLogFilter()
@@ -41,6 +46,6 @@ internal sealed class FriendlyHitServerMessage : GameNetworkMessage
 
     protected override string OnGetLogFormat()
     {
-        return $"[FriendlyFire] Hit by agent index {AttackerAgentIndex} for {Damage} damage";
+        return $"[FF Message] Hit by agent index {AttackerAgentIndex} for {Damage} damage. window: {ReportWindow}";
     }
 }
