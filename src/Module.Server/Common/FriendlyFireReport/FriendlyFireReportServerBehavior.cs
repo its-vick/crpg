@@ -8,10 +8,6 @@ namespace Crpg.Module.Common.FriendlyFireReport;
 
 internal class FriendlyFireReportServerBehavior : MissionNetwork
 {
-    // private const int TeamHitLimit = 5; // replaced by CrpgServerConfiguration.FriendlyFireReportMaxHits
-    // private const int TeamHitDecaySeconds = 60; // Time it takes for a reported hit to no longer count towards kick // CrpgServerConfiguration.FriendlyFireReportDecaySeconds
-    // private const int TeamHitReportWindowSeconds = 5; // Time window to report a team hit (0-200 based on compression i used in network message) // CrpgServerConfiguration.FriendlyFireReportWindowSeconds
-
     private class TeamHitRecord
     {
         public DateTime Time { get; set; }
@@ -40,15 +36,24 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         }
     }
 
+    // Track hit info of all teamhits
     private readonly Dictionary<NetworkCommunicator, List<TeamHitRecord>> _teamHitHistory = new();
     // Track which peer last team-damaged a specific peer
     private readonly Dictionary<NetworkCommunicator, NetworkCommunicator> _lastTeamHitBy = new();
+
+    private int _friendlyFireReportMaxHits;
+    private int _friendlyFireReportWindowSeconds;
+    private double _friendlyFireReportDecaySeconds;
+    private bool _isFriendlyFireReportEnabled;
+    private bool _isFriendlyFireReportNotifyAdminsEnabled;
 
     private MultiplayerRoundController? _roundController;
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
 
     public override void OnBehaviorInitialize()
     {
+        CrpgServerConfiguration.OnCrpgServerConfigChanged += UpdateFromServerConfig;
+        UpdateFromServerConfig();
         base.OnBehaviorInitialize();
     }
 
@@ -63,17 +68,20 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
     public override void OnRemoveBehavior()
     {
+        base.OnRemoveBehavior();
         if (_roundController != null)
         {
             _roundController.OnRoundStarted -= OnRoundStarted;
         }
+
+        CrpgServerConfiguration.OnCrpgServerConfigChanged -= UpdateFromServerConfig;
     }
 
     public override void OnAgentHit(Agent affectedAgent, Agent affectorAgent, in MissionWeapon affectorWeapon, in Blow blow, in AttackCollisionData attackCollisionData)
     {
         base.OnAgentHit(affectedAgent, affectorAgent, affectorWeapon, blow, attackCollisionData);
 
-        if (!CrpgServerConfiguration.IsFriendlyFireReportEnabled)
+        if (!_isFriendlyFireReportEnabled)
         {
             return; // If control M reporting is disabled, do not process team hits
         }
@@ -154,7 +162,7 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
             Debug.Print($"[FF Server] Sending FF Hit Message From Server to victim.", 0, Debug.DebugColor.Red);
             // Send a message From the server about the friendly hit
             GameNetwork.BeginModuleEventAsServer(affectedNetworkPeer);
-            GameNetwork.WriteMessage(new FriendlyFireHitMessage(affectorAgent.Index, attackCollisionData.InflictedDamage, CrpgServerConfiguration.FriendlyFireReportWindowSeconds));
+            GameNetwork.WriteMessage(new FriendlyFireHitMessage(affectorAgent.Index, attackCollisionData.InflictedDamage, _friendlyFireReportWindowSeconds));
             GameNetwork.EndModuleEventAsServer();
         }
     }
@@ -192,6 +200,53 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         }
     }
 
+    public (int activeReported, int decayedReported, int notReported) GetReportedTeamHitBreakdown(NetworkCommunicator peer, bool detailed = true)
+    {
+        if (peer == null || !_teamHitHistory.TryGetValue(peer, out var hitList))
+        {
+            return (0, 0, 0);
+        }
+
+        int activeReported = 0;
+        int decayedReported = 0;
+        int notReported = 0;
+        DateTime now = DateTime.UtcNow;
+
+        foreach (var hit in hitList)
+        {
+            if (!hit.WasReported)
+            {
+                if (detailed)
+                {
+                    notReported++;
+                }
+
+                continue;
+            }
+
+            hit.CheckAndMarkDecay(now, _friendlyFireReportDecaySeconds);
+
+            if (hit.HasDecayed)
+            {
+                if (detailed)
+                {
+                    decayedReported++;
+                }
+            }
+            else
+            {
+                activeReported++;
+            }
+        }
+
+        if (detailed)
+        {
+            Debug.Print($"[FF Server] {peer.UserName} teamhits: ActiveReported={activeReported}, DecayedReported={decayedReported}, NotReported={notReported}", 0, Debug.DebugColor.Red);
+        }
+
+        return (activeReported, decayedReported, notReported);
+    }
+
     protected override void AddRemoveMessageHandlers(GameNetwork.NetworkMessageHandlerRegistererContainer registerer)
     {
         if (GameNetwork.IsServer)
@@ -199,17 +254,32 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
             base.AddRemoveMessageHandlers(registerer);
             registerer.Register<FriendlyFireReportClientMessage>((peer, message) =>
             {
-                OnTeamDamageReportReceived(peer, message);
+                OnFriendlyFireReportRecieved(peer, message);
                 return true;
             });
         }
     }
 
-    private void OnTeamDamageReportReceived(NetworkCommunicator peer, FriendlyFireReportClientMessage message)
+    private void UpdateFromServerConfig()
     {
-        if (!CrpgServerConfiguration.IsFriendlyFireReportEnabled)
+        _friendlyFireReportMaxHits = CrpgServerConfiguration.FriendlyFireReportMaxHits;
+        _friendlyFireReportDecaySeconds = CrpgServerConfiguration.FriendlyFireReportDecaySeconds;
+        _isFriendlyFireReportEnabled = CrpgServerConfiguration.IsFriendlyFireReportEnabled;
+        _friendlyFireReportWindowSeconds = CrpgServerConfiguration.FriendlyFireReportWindowSeconds;
+        _isFriendlyFireReportNotifyAdminsEnabled = CrpgServerConfiguration.IsFriendlyFireReportNotifyAdminsEnabled;
+        Debug.Print($"UpdateFromServerConfig-- MaxHits: {_friendlyFireReportMaxHits} DecaySeconds: {_friendlyFireReportDecaySeconds} ReportEnabled: {_isFriendlyFireReportEnabled}", 0, Debug.DebugColor.Cyan);
+        Debug.Print($"ReportWindow: {_friendlyFireReportWindowSeconds} NotifyAdmins: {_isFriendlyFireReportNotifyAdminsEnabled}", 0, Debug.DebugColor.Cyan);
+    }
+
+    private void OnFriendlyFireReportRecieved(NetworkCommunicator peer, FriendlyFireReportClientMessage message)
+    {
+        if (!_isFriendlyFireReportEnabled)
         {
-            SendClientDisplayMessage(peer, "[FF] Control M reporting is currently disabled on this server.", FriendlyFireMessageMode.TeamDamageReportError);
+            if (peer != null && peer.IsConnectionActive)
+            {
+                SendClientDisplayMessage(peer, "[FF] Control M reporting is currently disabled on this server.", FriendlyFireMessageMode.TeamDamageReportError);
+            }
+
             return; // If control M reporting is disabled, do not process team hit reports
         }
 
@@ -236,12 +306,11 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         Debug.Print($"[FF Server] Received team damage report from {peer.UserName}", 0, Debug.DebugColor.Red);
 
         // Mark the last hit as reported
-        var recentHit = _teamHitHistory[attackingPeer]
-     .LastOrDefault(h =>
-         h.Victim == peer &&
-         !h.WasReported &&
-         (CrpgServerConfiguration.FriendlyFireReportWindowSeconds == 0 ||
-         (DateTime.UtcNow - h.Time).TotalSeconds < CrpgServerConfiguration.FriendlyFireReportWindowSeconds));
+        var recentHit = _teamHitHistory[attackingPeer].LastOrDefault(h =>
+            h.Victim == peer &&
+            !h.WasReported &&
+            (_friendlyFireReportWindowSeconds == 0 ||
+            (DateTime.UtcNow - h.Time).TotalSeconds < _friendlyFireReportWindowSeconds));
 
         if (recentHit != null)
         {
@@ -255,24 +324,27 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         }
 
         // Get Teamhits by attacker
-        var (countActive, countDecayed, countNotReported) = GetReportedTeamHitBreakdown(peer);
+        var (countActive, countDecayed, countNotReported) = GetReportedTeamHitBreakdown(attackingPeer);
 
         Debug.Print($"[FF Server] {attackingPeer.UserName} has {countActive} active reported team hits.", 0, Debug.DebugColor.Yellow);
 
         // Notify the attacker about the report (server side)
-        SendClientDisplayMessage(attackingPeer, $"[FF] {peer.UserName} has reported you for team hitting them. You have {countActive}/{CrpgServerConfiguration.FriendlyFireReportMaxHits} team hits before getting kicked.", FriendlyFireMessageMode.TeamDamageReportForAttacker);
+        SendClientDisplayMessage(attackingPeer, $"[FF] {peer.UserName} has reported you for team hitting them. You have {countActive}/{_friendlyFireReportMaxHits} team hits before getting kicked.", FriendlyFireMessageMode.TeamDamageReportForAttacker);
 
         // Notify the victim about the report
         SendClientDisplayMessage(peer, $"{attackingPeer.UserName} has been reported for team hitting you.");
 
         // Notify all admins about the report
-        SendClientDisplayMessageToAdmins($"[FF] {attackingPeer.UserName} reported by {peer.UserName}. [{countActive}/{CrpgServerConfiguration.FriendlyFireReportMaxHits}] decayed: {countDecayed} not reported: {countNotReported}");
-
-        if (countActive >= CrpgServerConfiguration.FriendlyFireReportMaxHits)
+        if (_isFriendlyFireReportNotifyAdminsEnabled)
         {
-            Debug.Print($"[FF Server] Kicking {attackingPeer.UserName} for exceeding team hit limit ({CrpgServerConfiguration.FriendlyFireReportMaxHits}).", 0, Debug.DebugColor.Green);
-            SendClientDisplayMessage(attackingPeer, $"[FF] You have been kicked for exceeding the team hit limit of {CrpgServerConfiguration.FriendlyFireReportMaxHits}", FriendlyFireMessageMode.TeamDamageReportKick);
-            SendClientDisplayMessageToAllExcept(attackingPeer, $"[FF] {attackingPeer.UserName} has been kicked for exceeding the team hit limit of {CrpgServerConfiguration.FriendlyFireReportMaxHits}.");
+            SendClientDisplayMessageToAdmins($"[FF] {attackingPeer.UserName} reported by {peer.UserName}. [{countActive}/{_friendlyFireReportMaxHits}] decayed: {countDecayed} not reported: {countNotReported}");
+        }
+
+        if (countActive >= _friendlyFireReportMaxHits)
+        {
+            Debug.Print($"[FF Server] Kicking {attackingPeer.UserName} for exceeding team hit limit ({_friendlyFireReportMaxHits}).", 0, Debug.DebugColor.Green);
+            SendClientDisplayMessage(attackingPeer, $"[FF] You have been kicked for exceeding the team hit limit of {_friendlyFireReportMaxHits}", FriendlyFireMessageMode.TeamDamageReportKick);
+            SendClientDisplayMessageToAllExcept(attackingPeer, $"[FF] {attackingPeer.UserName} has been kicked for exceeding the team hit limit of {_friendlyFireReportMaxHits}.");
 
             KickHelper.Kick(attackingPeer, DisconnectType.KickedDueToFriendlyDamage);
         }
@@ -333,44 +405,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         }
     }
 
-    private (int activeReported, int decayedReported, int notReported) GetReportedTeamHitBreakdown(NetworkCommunicator peer)
-    {
-        if (peer == null || !_teamHitHistory.TryGetValue(peer, out var hitList))
-        {
-            return (0, 0, 0); // No hits recorded
-        }
-
-        int activeReported = 0;
-        int decayedReported = 0;
-        int notReported = 0;
-        DateTime now = DateTime.UtcNow;
-
-        foreach (var hit in hitList)
-        {
-            hit.CheckAndMarkDecay(now, CrpgServerConfiguration.FriendlyFireReportDecaySeconds);
-
-            if (hit.WasReported)
-            {
-                if (hit.HasDecayed)
-                {
-                    decayedReported++;
-                }
-                else
-                {
-                    activeReported++;
-                }
-            }
-            else
-            {
-                notReported++;
-            }
-        }
-
-        Debug.Print($"[FF Server] {peer.UserName} teamhits: ActiveReported={activeReported}, DecayedReported={decayedReported}, NotReported={notReported}", 0, Debug.DebugColor.Red);
-
-        return (activeReported, decayedReported, notReported);
-    }
-
     private void OnRoundStarted()
     {
         _lastTeamHitBy.Clear(); // clear last person to hit a peer
@@ -389,6 +423,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         // _teamHitHistory.Clear(); // <-- clear all list of team hits per attacker peer
 
-        Debug.Print("[FF Server] Round started, data cleared.", 0, Debug.DebugColor.Green);
+        Debug.Print("[FF Server] Round started, some data cleared.", 0, Debug.DebugColor.Green);
     }
 }

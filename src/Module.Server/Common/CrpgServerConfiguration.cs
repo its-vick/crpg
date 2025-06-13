@@ -23,6 +23,7 @@ internal static class CrpgServerConfiguration
         DedicatedServerConsoleCommandManager.AddType(typeof(CrpgServerConfiguration));
     }
 
+    public static event Action? OnCrpgServerConfigChanged;
     public static CrpgRegion Region { get; }
     public static string Service { get; }
     public static string Instance { get; }
@@ -192,6 +193,8 @@ internal static class CrpgServerConfiguration
 
         IsFriendlyFireReportEnabled = outputBool;
         Debug.Print($"--Changed: crpg_ff_report_enabled to: {outputBool}");
+
+        OnCrpgServerConfigChanged?.Invoke();
     }
 
     [UsedImplicitly]
@@ -209,6 +212,8 @@ internal static class CrpgServerConfiguration
 
         FriendlyFireReportMaxHits = outputInt;
         Debug.Print($"--Changed crpg_ff_report_max_hit_count to: {outputInt}");
+
+        OnCrpgServerConfigChanged?.Invoke();
     }
 
     [UsedImplicitly]
@@ -224,6 +229,8 @@ internal static class CrpgServerConfiguration
 
         IsFriendlyFireReportNotifyAdminsEnabled = outputBool;
         Debug.Print($"--Changed crpg_ff_report_notify_admins to: {outputBool}");
+
+        OnCrpgServerConfigChanged?.Invoke();
     }
 
     [UsedImplicitly]
@@ -241,9 +248,10 @@ internal static class CrpgServerConfiguration
 
         FriendlyFireReportDecaySeconds = outputInt;
         Debug.Print($"--Changed crpg_ff_report_decay_seconds to: {outputInt}");
+
+        OnCrpgServerConfigChanged?.Invoke();
     }
 
-    // FriendlyFireReportWindowSeconds
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_ff_report_window_seconds", "Report friendly fire by pressing Ctrl+M, window of time to report a teamhit")]
     private static void SetFriendlyFireReportWindowSeconds(string? inputStr)
@@ -259,5 +267,7 @@ internal static class CrpgServerConfiguration
 
         FriendlyFireReportWindowSeconds = outputInt;
         Debug.Print($"--Changed crpg_ff_report_window_seconds to: {outputInt}");
+
+        OnCrpgServerConfigChanged?.Invoke();
     }
 }

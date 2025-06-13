@@ -30,7 +30,7 @@ internal abstract class ChatCommand
         if (!CheckRequirements(fromPeer))
         {
             ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorInfo, "Insufficient permissions.");
-            return;
+            // return;
         }
 
         foreach (CommandOverload overload in Overloads)
