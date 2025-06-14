@@ -9,6 +9,7 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
     private int _reportWindowSeconds = 0; // default unlimited, updated via FriendlyFireHitMessage
     private bool _ctrlMWasPressed;
     private DateTime? _lastHitMessageTime;
+    private int? _lastAttackerAgentIndex;
 
     public override void OnBehaviorInitialize()
     {
@@ -31,9 +32,15 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
             double elapsedSeconds = (DateTime.UtcNow - _lastHitMessageTime.Value).TotalSeconds;
             if (elapsedSeconds > _reportWindowSeconds)
             {
+                string name = _lastAttackerAgentIndex.HasValue
+                    ? GetAgentNameByIndex(_lastAttackerAgentIndex.Value)
+                    : "Unknown";
+
                 // Expired window, reset timer
                 _lastHitMessageTime = null;
-                InformationManager.DisplayMessage(new InformationMessage("[FF] Report friendly fire time expired.", Colors.Yellow));
+                _lastAttackerAgentIndex = null;
+
+                InformationManager.DisplayMessage(new InformationMessage($"[FF] Time expired to report {name} for teamhit.", Colors.Yellow));
                 return;
             }
         }
@@ -46,6 +53,7 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
             _ctrlMWasPressed = true;
             HandleCtrlMPressed();
             _lastHitMessageTime = null; // Reset after reporting
+            _lastAttackerAgentIndex = null;
         }
 
         if (!isCtrlDown || !Input.IsKeyDown(InputKey.M))
@@ -73,19 +81,27 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
         GameNetwork.EndModuleEventAsClient();
     }
 
+    private string GetAgentNameByIndex(int agentIndex)
+    {
+        Agent? agent = Mission.Current?.Agents?.FirstOrDefault(a => a.Index == agentIndex);
+        return agent?.Name?.ToString() ?? "Unknown";
+    }
+
     private void HandleFriendlyFireHitMessage(FriendlyFireHitMessage message)
     {
         // Update _reportWindowSeconds set in Crpg.serverConfiguration
         _reportWindowSeconds = message.ReportWindow;
+        _lastAttackerAgentIndex = message.AttackerAgentIndex;
 
-        Agent? attacker = Mission.Current?.Agents.FirstOrDefault(a => a.Index == message.AttackerAgentIndex);
-        string name = attacker?.Name?.ToString() ?? "Unknown";
+        string name = _lastAttackerAgentIndex.HasValue
+            ? GetAgentNameByIndex(_lastAttackerAgentIndex.Value)
+            : "Unknown";
 
-        string outString = $"[FF] Teamwounded by {name} for {message.Damage} damage. Press Ctrl+M to mark that you believe this was intentional.";
+        string outString = $"[FF] Team hit by {name} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional.";
 
         if (_reportWindowSeconds > 0)
         {
-            outString = $"[FF] Teamwounded by {name} for {message.Damage} damage. Press Ctrl+M to mark that you believe this was intentional within {_reportWindowSeconds} seconds.";
+            outString = $"[FF] Team hit by {name} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional. {_reportWindowSeconds} seconds remaining.";
         }
 
         InformationManager.DisplayMessage(new InformationMessage(outString, Colors.Red));
@@ -99,7 +115,7 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
     private void HandleFriendlyFireTextMessage(FriendlyFireNotificationMessage message)
     {
         FriendlyFireMessageMode mode = message.Mode;
-        Color msgColor = Colors.Yellow;
+        Color msgColor;
         switch (mode)
         {
             case FriendlyFireMessageMode.Default:

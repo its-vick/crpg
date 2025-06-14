@@ -86,6 +86,11 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
             return; // If control M reporting is disabled, do not process team hits
         }
 
+        if (Mission.Current?.GetMissionBehavior<MultiplayerWarmupComponent>()?.IsInWarmup ?? false)
+        {
+            return; // Still in warmup phase
+        }
+
         if (affectedAgent == null || affectorAgent == null || affectedAgent == affectorAgent)
         {
             Debug.Print("[FF Server] Invalid agents involved in hit.", 0, Debug.DebugColor.Red);
@@ -94,30 +99,24 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (affectedAgent.IsMount) // Check if victim a mount
         {
-            Debug.Print($"[FF Server] {affectedAgent.Name} is a mount", 0, Debug.DebugColor.Red);
             if (affectedAgent.RiderAgent != null && affectedAgent.RiderAgent.IsActive())
             {
-                Debug.Print($"[FF Server] {affectedAgent.Name} is riding {affectedAgent.Name}", 0, Debug.DebugColor.Red);
                 affectedAgent = affectedAgent.RiderAgent; // use the rider as the victim
             }
             else
             {
-                Debug.Print($"[FF Server] friendly mount with no rider.", 0, Debug.DebugColor.Red);
                 return; // ignore hits to mounts without riders
             }
         }
 
         if (affectorAgent.IsMount) // Check if the attacker agent is a mount
         {
-            Debug.Print($"[FF Server] {affectorAgent.Name} is a mount", 0, Debug.DebugColor.Red);
             if (affectorAgent.RiderAgent != null && affectorAgent.RiderAgent.IsActive())
             {
-                Debug.Print($"[FF Server] {affectorAgent.Name} is ridden by {affectorAgent.RiderAgent.Name}", 0, Debug.DebugColor.Red);
                 affectorAgent = affectorAgent.RiderAgent; // use the rider as the attacker
             }
             else
             {
-                Debug.Print($"[FF Server] friendly mount with no rider.", 0, Debug.DebugColor.Red);
                 return; // ignore hits from mounts without riders
             }
         }
@@ -125,15 +124,12 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         // Check if both agents are player controlled, use rider (set above) if mount was the attacker or victim
         if (!affectedAgent.IsPlayerControlled || !affectorAgent.IsPlayerControlled)
         {
-            Debug.Print($"[FF Server] {affectorAgent.Name} hit {affectedAgent.Name}, but one of them is not player controlled.", 0, Debug.DebugColor.Red);
             return;
         }
 
         // Same team
         if (affectedAgent.Team?.TeamIndex != affectorAgent.Team?.TeamIndex)
         {
-            string weaponName = affectorWeapon.Item?.Name.ToString() ?? "Unknown Weapon";
-            Debug.Print($"[FF Server] {affectorAgent.Name} hit {affectedAgent.Name} with {weaponName} from different teams.", 0, Debug.DebugColor.Red);
             return; // not a team hit
         }
 
@@ -142,7 +138,7 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (affectorNetworkPeer == null || affectedNetworkPeer == null || affectorNetworkPeer == affectedNetworkPeer)
         {
-            Debug.Print("[FF Server] No valid network peers for affector or affected agent, or they are the same peer.", 0, Debug.DebugColor.Red);
+            Debug.Print("[FF Server] No valid network peers for affector or affected agent.", 0, Debug.DebugColor.Red);
             return; // No network peers available or same peer
         }
 
@@ -159,7 +155,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (GameNetwork.IsServer)
         {
-            Debug.Print($"[FF Server] Sending FF Hit Message From Server to victim.", 0, Debug.DebugColor.Red);
             // Send a message From the server about the friendly hit
             GameNetwork.BeginModuleEventAsServer(affectedNetworkPeer);
             GameNetwork.WriteMessage(new FriendlyFireHitMessage(affectorAgent.Index, attackCollisionData.InflictedDamage, _friendlyFireReportWindowSeconds));
@@ -195,7 +190,7 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
             .ToList();
         foreach (var victimPeer in victims)
         {
-            SendClientDisplayMessage(victimPeer, $"[FF] Your last teamhit attacker {networkPeer.UserName} has left the match.", FriendlyFireMessageMode.TeamDamageReportError);
+            // SendClientDisplayMessage(victimPeer, $"[FF] Your last teamhit attacker {networkPeer.UserName} has left the match.", FriendlyFireMessageMode.TeamDamageReportError);
             _lastTeamHitBy.Remove(victimPeer);
         }
     }
@@ -271,16 +266,43 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         Debug.Print($"ReportWindow: {_friendlyFireReportWindowSeconds} NotifyAdmins: {_isFriendlyFireReportNotifyAdminsEnabled}", 0, Debug.DebugColor.Cyan);
     }
 
+    private void OnRoundStarted()
+    {
+        _lastTeamHitBy.Clear(); // clear last person to hit a peer
+
+        // mark all reported hits as decayed on round start but preserve data
+        foreach (var hitList in _teamHitHistory.Values)
+        {
+            foreach (var hit in hitList)
+            {
+                if (hit.WasReported)
+                {
+                    hit.HasDecayed = true;
+                }
+            }
+        }
+
+        // _teamHitHistory.Clear(); // <-- clear all list of team hits per attacker peer
+
+        Debug.Print("[FF Server] Round started, some data cleared.", 0, Debug.DebugColor.Green);
+    }
+
     private void OnFriendlyFireReportRecieved(NetworkCommunicator peer, FriendlyFireReportClientMessage message)
     {
         if (!_isFriendlyFireReportEnabled)
         {
             if (peer != null && peer.IsConnectionActive)
             {
-                SendClientDisplayMessage(peer, "[FF] Control M reporting is currently disabled on this server.", FriendlyFireMessageMode.TeamDamageReportError);
+                SendClientDisplayMessage(peer, "[FF] Control+M reporting is currently disabled on this server.", FriendlyFireMessageMode.TeamDamageReportError);
             }
 
             return; // If control M reporting is disabled, do not process team hit reports
+        }
+
+        if (Mission.Current?.GetMissionBehavior<MultiplayerWarmupComponent>()?.IsInWarmup ?? false)
+        {
+            Debug.Print("[FF Server] Reporting is disabled during warmup.");
+            return; // Still in warmup phase
         }
 
         if (peer == null || !peer.IsConnectionActive)
@@ -298,12 +320,9 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         if (attackingPeer == null || !attackingPeer.IsConnectionActive)
         {
             Debug.Print($"[FF Server] Attacking peer {attackingPeer?.UserName} is not active.", 0, Debug.DebugColor.Red);
-            SendClientDisplayMessage(peer, "No active attacker found for your report.", FriendlyFireMessageMode.TeamDamageReportError);
+            SendClientDisplayMessage(peer, "[FF] No active attacker found for your report.", FriendlyFireMessageMode.TeamDamageReportError);
             return; // Attacker is not active
         }
-
-        // Process report here, e.g. log or notify
-        Debug.Print($"[FF Server] Received team damage report from {peer.UserName}", 0, Debug.DebugColor.Red);
 
         // Mark the last hit as reported
         var recentHit = _teamHitHistory[attackingPeer].LastOrDefault(h =>
@@ -319,20 +338,20 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         else
         {
             Debug.Print($"[FF Server] No recent unreported team hit found for {attackingPeer.UserName} hitting {peer.UserName}.", 0, Debug.DebugColor.Red);
-            SendClientDisplayMessage(peer, "No recent team hit found to report.", FriendlyFireMessageMode.TeamDamageReportError);
+            SendClientDisplayMessage(peer, "[FF] No recent team hit found to report.", FriendlyFireMessageMode.TeamDamageReportError);
             return; // No recent unreported hit found
         }
 
         // Get Teamhits by attacker
         var (countActive, countDecayed, countNotReported) = GetReportedTeamHitBreakdown(attackingPeer);
 
-        Debug.Print($"[FF Server] {attackingPeer.UserName} has {countActive} active reported team hits.", 0, Debug.DebugColor.Yellow);
+        Debug.Print($"[FF Server]  Victim: {peer.UserName} Reported: {attackingPeer.UserName} Dmg: {recentHit.Damage} Hits: {countActive}/{_friendlyFireReportMaxHits}", 0, Debug.DebugColor.Red);
 
         // Notify the attacker about the report (server side)
-        SendClientDisplayMessage(attackingPeer, $"[FF] {peer.UserName} has reported you for team hitting them. You have {countActive}/{_friendlyFireReportMaxHits} team hits before getting kicked.", FriendlyFireMessageMode.TeamDamageReportForAttacker);
+        SendClientDisplayMessage(attackingPeer, $"[FF] {peer.UserName} reported your team hit (Dmg: {recentHit.Damage}). {countActive}/{_friendlyFireReportMaxHits} team hits until getting kicked.", FriendlyFireMessageMode.TeamDamageReportForAttacker);
 
         // Notify the victim about the report
-        SendClientDisplayMessage(peer, $"{attackingPeer.UserName} has been reported for team hitting you.");
+        SendClientDisplayMessage(peer, $"[FF] Reported {attackingPeer.UserName} for team hit (Dmg: {recentHit.Damage}).");
 
         // Notify all admins about the report
         if (_isFriendlyFireReportNotifyAdminsEnabled)
@@ -343,8 +362,8 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         if (countActive >= _friendlyFireReportMaxHits)
         {
             Debug.Print($"[FF Server] Kicking {attackingPeer.UserName} for exceeding team hit limit ({_friendlyFireReportMaxHits}).", 0, Debug.DebugColor.Green);
-            SendClientDisplayMessage(attackingPeer, $"[FF] You have been kicked for exceeding the team hit limit of {_friendlyFireReportMaxHits}", FriendlyFireMessageMode.TeamDamageReportKick);
-            SendClientDisplayMessageToAllExcept(attackingPeer, $"[FF] {attackingPeer.UserName} has been kicked for exceeding the team hit limit of {_friendlyFireReportMaxHits}.");
+            SendClientDisplayMessage(attackingPeer, $"[FF] You have been kicked for consecutive team hits ({_friendlyFireReportMaxHits})", FriendlyFireMessageMode.TeamDamageReportKick);
+            SendClientDisplayMessageToAllExcept(attackingPeer, $"[FF] {attackingPeer.UserName} has been kicked for excessive team hits ({_friendlyFireReportMaxHits}).", FriendlyFireMessageMode.TeamDamageReportKick);
 
             KickHelper.Kick(attackingPeer, DisconnectType.KickedDueToFriendlyDamage);
         }
@@ -366,17 +385,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         GameNetwork.BeginModuleEventAsServer(peer);
         GameNetwork.WriteMessage(new FriendlyFireNotificationMessage(displayText, messageMode));
         GameNetwork.EndModuleEventAsServer();
-    }
-
-    private void SendClientDisplayMessageToAll(string displayText, FriendlyFireMessageMode messageMode = FriendlyFireMessageMode.TeamDamageReportForAll)
-    {
-        foreach (var peer in GameNetwork.NetworkPeers)
-        {
-            if (peer.IsConnectionActive)
-            {
-                SendClientDisplayMessage(peer, displayText, messageMode);
-            }
-        }
     }
 
     private void SendClientDisplayMessageToAllExcept(NetworkCommunicator excludedPeer, string displayText, FriendlyFireMessageMode messageMode = FriendlyFireMessageMode.Default)
@@ -403,26 +411,5 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
                 }
             }
         }
-    }
-
-    private void OnRoundStarted()
-    {
-        _lastTeamHitBy.Clear(); // clear last person to hit a peer
-
-        // mark all reported hits as decayed on round start but preserve data
-        foreach (var hitList in _teamHitHistory.Values)
-        {
-            foreach (var hit in hitList)
-            {
-                if (hit.WasReported)
-                {
-                    hit.HasDecayed = true;
-                }
-            }
-        }
-
-        // _teamHitHistory.Clear(); // <-- clear all list of team hits per attacker peer
-
-        Debug.Print("[FF Server] Round started, some data cleared.", 0, Debug.DebugColor.Green);
     }
 }

@@ -39,7 +39,7 @@ internal static class CrpgServerConfiguration
     public static int FriendlyFireReportMaxHits { get; private set; } = 5;
     public static bool IsFriendlyFireReportNotifyAdminsEnabled { get; private set; } = true;
     public static int FriendlyFireReportDecaySeconds { get; private set; } = 60;
-    public static int FriendlyFireReportWindowSeconds { get; private set; } = 5;
+    public static int FriendlyFireReportWindowSeconds { get; private set; } = 10;
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_team_balancer_clan_group_size_penalty", "Apply a rating increase to members of the same clan that are playing in the same team")]

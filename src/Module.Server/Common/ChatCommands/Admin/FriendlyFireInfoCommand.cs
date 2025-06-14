@@ -9,7 +9,7 @@ internal class FriendlyFireInfoCommand : AdminCommand
     : base(chatComponent)
     {
         Name = "ff";
-        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} PLAYERID_TARGET or PLAYERNANE' to get friendly fire information for player.";
+        Description = $"'{ChatCommandsComponent.CommandPrefix}{Name} PLAYERID or PLAYERNANE' to get friendly fire information for player.";
         Overloads = new CommandOverload[]
         {
             new(new[] { ChatCommandParameterType.PlayerId }, ExecuteFriendlyFireInfoByNetworkPeer),
