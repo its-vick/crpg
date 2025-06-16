@@ -40,6 +40,11 @@ internal class FriendlyFireInfoCommand : AdminCommand
             return;
         }
 
+        if (!CrpgServerConfiguration.IsFriendlyFireReportEnabled)
+        {
+            ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorWarning, "[FF] Reporting teamhits is disabled.");
+        }
+
         if (targetPeer == null || !targetPeer.IsConnectionActive)
         {
             ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorWarning, $"Invalid peer: {arguments}");
@@ -52,8 +57,7 @@ internal class FriendlyFireInfoCommand : AdminCommand
         int decayed = decayedReported;
         int not = notReported;
 
-        // Use the data
-        string strOut = $"[FF] Info for {targetPeer.UserName}: Active={active}, Decayed={decayed}, NotReported={not}";
+        string strOut = $"[FF] Info for {targetPeer.UserName}: Active={active}, Decayed={decayed}, NotReported={not}, Combined={active + decayed + not}";
         ChatComponent.ServerSendMessageToPlayer(fromPeer, ColorSuccess, strOut);
     }
 }

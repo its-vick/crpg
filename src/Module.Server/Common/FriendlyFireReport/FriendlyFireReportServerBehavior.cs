@@ -45,11 +45,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
     private MultiplayerRoundController? _roundController;
     public override MissionBehaviorType BehaviorType => MissionBehaviorType.Other;
 
-    public override void OnBehaviorInitialize()
-    {
-        base.OnBehaviorInitialize();
-    }
-
     public override void AfterStart()
     {
         _roundController = Mission.Current.GetMissionBehavior<MultiplayerRoundController>();
@@ -84,7 +79,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (affectedAgent == null || affectorAgent == null || affectedAgent == affectorAgent)
         {
-            Debug.Print("[FF Server] Invalid agents involved in hit.", 0, Debug.DebugColor.Red);
             return;
         }
 
@@ -129,7 +123,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (affectorNetworkPeer == null || affectedNetworkPeer == null || affectorNetworkPeer == affectedNetworkPeer)
         {
-            Debug.Print("[FF Server] No valid network peers for affector or affected agent.", 0, Debug.DebugColor.Red);
             return; // No network peers available or same peer
         }
 
@@ -152,7 +145,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (GameNetwork.IsServer)
         {
-            // Send a message From the server about the friendly hit
             GameNetwork.BeginModuleEventAsServer(affectedNetworkPeer);
             GameNetwork.WriteMessage(new FriendlyFireHitMessage(affectorAgent.Index, attackCollisionData.InflictedDamage, CrpgServerConfiguration.FriendlyFireReportWindowSeconds));
             GameNetwork.EndModuleEventAsServer();
@@ -231,11 +223,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
             }
         }
 
-        if (detailed)
-        {
-            Debug.Print($"[FF Server] {peer.UserName} teamhits: ActiveReported={activeReported}, DecayedReported={decayedReported}, NotReported={notReported}", 0, Debug.DebugColor.Red);
-        }
-
         return (activeReported, decayedReported, notReported);
     }
 
@@ -284,7 +271,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
     private void OnFriendlyFireReportRecieved(NetworkCommunicator peer, FriendlyFireReportClientMessage message)
     {
-
         if (!CrpgServerConfiguration.IsFriendlyFireReportEnabled)
         {
             if (peer != null && peer.IsConnectionActive)
@@ -297,26 +283,22 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (peer == null || !peer.IsConnectionActive)
         {
-            Debug.Print("[FF Server] Received team damage report from an inactive peer.", 0, Debug.DebugColor.Red);
             return;
         }
 
         if (Mission.Current?.GetMissionBehavior<MultiplayerWarmupComponent>()?.IsInWarmup ?? false)
         {
-            Debug.Print("[FF Server] Ctrl+M Reporting is disabled during warmup.");
             return; // Still in warmup phase
         }
 
         if (!_lastTeamHitBy.TryGetValue(peer, out NetworkCommunicator? attackingPeer))
         {
-            Debug.Print($"[FF Server] No last team hit found for {peer.UserName}.", 0, Debug.DebugColor.Red);
             return; // No record of a team hit
         }
 
         if (attackingPeer == null || !attackingPeer.IsConnectionActive)
         {
-            Debug.Print($"[FF Server] Attacking peer {attackingPeer?.UserName} is not active.", 0, Debug.DebugColor.Red);
-            SendClientDisplayMessage(peer, "[FF] No active attacker found for your report.", FriendlyFireMessageMode.TeamDamageReportError);
+            SendClientDisplayMessage(peer, "[FF] No connected attacker peer found for your report.", FriendlyFireMessageMode.TeamDamageReportError);
             return; // Attacker is not active
         }
 
@@ -333,7 +315,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         }
         else
         {
-            Debug.Print($"[FF Server] No recent unreported team hit found for {attackingPeer.UserName} hitting {peer.UserName}.", 0, Debug.DebugColor.Red);
             SendClientDisplayMessage(peer, "[FF] No recent team hit found to report.", FriendlyFireMessageMode.TeamDamageReportError);
             return; // No recent unreported hit found
         }
@@ -342,8 +323,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
         var (countActive, countDecayed, countNotReported) = GetReportedTeamHitBreakdown(attackingPeer);
         int countAttacksOnVictim = CountTotalHitsAgainstVictim(attackingPeer, peer);
         int maxHits = CrpgServerConfiguration.FriendlyFireReportMaxHits;
-
-        Debug.Print($"[FF Server]  Victim: {peer.UserName} Reported: {attackingPeer.UserName} Dmg: {recentHit.Damage} Hits: {countActive}/{maxHits}", 0, Debug.DebugColor.Red);
 
         // Notify the attacker about the report
         SendClientDisplayMessage(attackingPeer, $"[FF] {peer.UserName} reported your team hit (Dmg: {recentHit.Damage}). {countActive}/{maxHits} team hits until getting kicked.", FriendlyFireMessageMode.TeamDamageReportForAttacker);
@@ -362,7 +341,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (countActive >= maxHits)
         {
-            Debug.Print($"[FF Server] Kicking {attackingPeer.UserName} for exceeding team hit limit ({maxHits}).", 0, Debug.DebugColor.Green);
             SendClientDisplayMessage(attackingPeer, $"[FF] You have been kicked for excessive team hits ({maxHits})", FriendlyFireMessageMode.TeamDamageReportKick);
             SendClientDisplayMessageToAllExcept(attackingPeer, $"[FF] {attackingPeer.UserName} has been kicked for excessive team hits ({maxHits}).", FriendlyFireMessageMode.TeamDamageReportKick);
 
@@ -413,7 +391,6 @@ internal class FriendlyFireReportServerBehavior : MissionNetwork
 
         if (!Enum.IsDefined(typeof(FriendlyFireMessageMode), messageMode))
         {
-            Debug.Print($"[FF Server] Invalid MessageMode '{messageMode}' used in SendClientDisplayMessage.", 0, Debug.DebugColor.Red);
             messageMode = FriendlyFireMessageMode.Default; // fallback to safe default
         }
 

@@ -2,7 +2,6 @@
 using Crpg.Module.Api.Models;
 using Crpg.Module.HarmonyPatches;
 using JetBrains.Annotations;
-using NetworkMessages.FromServer;
 using TaleWorlds.Library;
 using TaleWorlds.MountAndBlade;
 

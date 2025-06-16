@@ -10,59 +10,51 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
     private bool _ctrlMWasPressed;
     private DateTime? _lastHitMessageTime;
     private int? _lastAttackerAgentIndex;
-
-    public override void OnBehaviorInitialize()
-    {
-        base.OnBehaviorInitialize();
-    }
+    private string _lastAttackerName = "Unknown";
+    private bool _expiredMessageShown;
 
     public override void OnMissionTick(float dt)
     {
         base.OnMissionTick(dt);
 
-        if (_lastHitMessageTime == null)
-        {
-            // InformationManager.DisplayMessage(new InformationMessage("No team hit reported. _lastHitMessageTime was null.", Colors.Red));
-            return;
-        }
-
-        // time window to report an attack is not unlimited if > 0
-        if (_reportWindowSeconds > 0)
-        {
-            double elapsedSeconds = (DateTime.UtcNow - _lastHitMessageTime.Value).TotalSeconds;
-            if (elapsedSeconds > _reportWindowSeconds)
-            {
-                if (_lastAttackerAgentIndex == null || Mission.Current == null)
-                {
-                    return;
-                }
-
-                Agent agent = Mission.Current.FindAgentWithIndex((int)_lastAttackerAgentIndex);
-                if (agent == null)
-                {
-                    return;
-                }
-
-                string name = agent?.Name?.ToString() ?? "Unknown";
-
-                // Expired window, reset timer
-                _lastHitMessageTime = null;
-                _lastAttackerAgentIndex = null;
-
-                InformationManager.DisplayMessage(new InformationMessage($"[FF] Time expired to report {name} for teamhit.", Colors.Yellow));
-                return;
-            }
-        }
-
         bool isCtrlDown = Input.IsKeyDown(InputKey.LeftControl) || Input.IsKeyDown(InputKey.RightControl);
         bool isMPressed = Input.IsKeyPressed(InputKey.M);
 
-        if (isCtrlDown && isMPressed && !_ctrlMWasPressed)
+        if (isCtrlDown && isMPressed && !_ctrlMWasPressed) // ctrl+m pressed
         {
             _ctrlMWasPressed = true;
-            HandleCtrlMPressed();
-            _lastHitMessageTime = null; // Reset after reporting
+
+            if (_lastHitMessageTime != null)
+            {
+                if (_reportWindowSeconds > 0)
+                {
+                    double elapsedSeconds = (DateTime.UtcNow - _lastHitMessageTime.Value).TotalSeconds;
+                    if (elapsedSeconds > _reportWindowSeconds)
+                    {
+                        if (!_expiredMessageShown)
+                        {
+                            InformationManager.DisplayMessage(new InformationMessage($"[FF] Time expired to report {_lastAttackerName} for teamhit.", Colors.Yellow));
+                            _expiredMessageShown = true;
+                        }
+
+                        // Ensure state is cleared regardless of whether the message was shown this frame
+                        _lastHitMessageTime = null;
+                        _lastAttackerAgentIndex = null;
+                        _lastAttackerName = "Unknown";
+
+                        return; // Don't report if window expired
+                    }
+                }
+
+                // Report is valid
+                HandleCtrlMPressed();
+            }
+
+            // Always clear state after attempt (successful or expired)
+            _lastHitMessageTime = null;
             _lastAttackerAgentIndex = null;
+            _expiredMessageShown = false;
+            _lastAttackerName = "Unknown";
         }
 
         if (!isCtrlDown || !Input.IsKeyDown(InputKey.M))
@@ -83,17 +75,9 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
 
     private void HandleCtrlMPressed()
     {
-        // InformationManager.DisplayMessage(new InformationMessage("[FF] Sending Team Damage Report to Server.", Colors.Yellow));
-
         GameNetwork.BeginModuleEventAsClient();
         GameNetwork.WriteMessage(new FriendlyFireReportClientMessage());
         GameNetwork.EndModuleEventAsClient();
-    }
-
-    private string GetAgentNameByIndex(int agentIndex)
-    {
-        Agent? agent = Mission.Current?.Agents?.FirstOrDefault(a => a.Index == agentIndex);
-        return agent?.Name?.ToString() ?? "Unknown";
     }
 
     private void HandleFriendlyFireHitMessage(FriendlyFireHitMessage message)
@@ -101,6 +85,7 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
         // Update _reportWindowSeconds set in Crpg.serverConfiguration
         _reportWindowSeconds = message.ReportWindow;
         _lastAttackerAgentIndex = message.AttackerAgentIndex;
+        _expiredMessageShown = false;
 
         if (_lastAttackerAgentIndex == null || Mission.Current == null)
         {
@@ -113,12 +98,12 @@ internal class FriendlyFireReportClientBehavior : MissionNetwork
             return;
         }
 
-        string name = agent?.Name?.ToString() ?? "Unknown";
-        string outString = $"[FF] Team hit by {name} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional.";
+        _lastAttackerName = agent?.Name?.ToString() ?? "Unknown";
+        string outString = $"[FF] Team hit by {_lastAttackerName} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional.";
 
         if (_reportWindowSeconds > 0)
         {
-            outString = $"[FF] Team hit by {name} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional. {_reportWindowSeconds} seconds remaining.";
+            outString = $"[FF] Team hit by {_lastAttackerName} (Dmg: {message.Damage}). Press Ctrl+M to mark that you believe this was intentional. {_reportWindowSeconds} seconds remaining.";
         }
 
         InformationManager.DisplayMessage(new InformationMessage(outString, Colors.Red));
