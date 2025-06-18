@@ -36,13 +36,13 @@ internal static class CrpgServerConfiguration
     public static bool DisableAllChargeDamage { get; set; } = false;
     public static bool AllowFriendlyChargeDamage { get; set; } = true;
     public static bool AllowChargeEnemies { get; set; } = true;
-    public static bool MirrorFriendlyChargeDamageMount { get; set; } = true;
+    public static bool MirrorFriendlyChargeDamageMount { get; set; } = false;
     public static bool MirrorFriendlyChargeDamageAgent { get; set; } = false;
     public static int MirrorMountDamageMultiplier { get; set; } = 5;
     public static int MirrorAgentDamageMultiplier { get; set; } = 1;
-    public static int MirrorMountDamageMaximum { get; set; } = 100;
+    public static int MirrorMountDamageMaximum { get; set; } = 50;
     public static int MirrorMountDamageMinimum { get; set; } = 0;
-    public static int MirrorMountDamageMaximumPercentage { get; set; } = 50;
+    public static int MirrorMountDamageMaximumPercentage { get; set; } = 25;
     public static float MinimumChargeVelocityForFriendlyDamage { get; set; } = 0.0f;
 
     [UsedImplicitly]
@@ -199,200 +199,200 @@ internal static class CrpgServerConfiguration
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_disable_all", "Disable all charge damage")]
-    private static void SetDisableAllChargeDamage(string? disableAllChargeDamageStr = "False")
+    private static void SetDisableAllChargeDamage(string? inputStr)
     {
-        if (string.IsNullOrWhiteSpace(disableAllChargeDamageStr) || disableAllChargeDamageStr == null
-            || !bool.TryParse(disableAllChargeDamageStr, out bool disableAllChargeDamage))
+        if (string.IsNullOrWhiteSpace(inputStr) || inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid disable all charge damage: {disableAllChargeDamageStr}");
+            Debug.Print($"Invalid disable all charge damage: {inputStr}");
             Debug.Print("Please provide a valid boolean value (true/false).");
             Debug.Print($"Current value: crpg_charge_damage_disable_all {DisableAllChargeDamage}");
             return;
         }
 
-        DisableAllChargeDamage = disableAllChargeDamage;
-        Debug.Print($"Set disable all charge damage to {disableAllChargeDamage}");
+        DisableAllChargeDamage = outputBool;
+        Debug.Print($"--Changed: crpg_charge_damage_disable_all to {outputBool}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_allow_enemies", "Allow charge damage to enemies")]
-    private static void SetAllowChargeEnemies(string? allowChargeEnemiesStr)
+    private static void SetAllowChargeEnemies(string? inputStr)
     {
-        if (string.IsNullOrWhiteSpace(allowChargeEnemiesStr) || allowChargeEnemiesStr == null
-            || !bool.TryParse(allowChargeEnemiesStr, out bool allowChargeEnemies))
+        if (string.IsNullOrWhiteSpace(inputStr) || inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid allow charge enemies: {allowChargeEnemiesStr}");
+            Debug.Print($"Invalid allow charge enemies: {inputStr}");
             Debug.Print("Please provide a valid boolean value (true/false).");
             Debug.Print($"Current value: crpg_charge_damage_allow_enemies {AllowChargeEnemies}");
             return;
         }
 
-        AllowChargeEnemies = allowChargeEnemies;
-        Debug.Print($"Set allow charge enemies to {allowChargeEnemies}");
+        AllowChargeEnemies = outputBool;
+        Debug.Print($"--Changed: crpg_charge_damage_allow_enemies to: {outputBool}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_allow_friendly", "Allow charge damage to friendly agents")]
-    private static void SetAllowFriendlyChargeDamage(string? allowFriendlyChargeDamageStr)
+    private static void SetAllowFriendlyChargeDamage(string? inputStr)
     {
-        if (string.IsNullOrWhiteSpace(allowFriendlyChargeDamageStr) || allowFriendlyChargeDamageStr == null
-            || !bool.TryParse(allowFriendlyChargeDamageStr, out bool allowFriendlyChargeDamage))
+        if (string.IsNullOrWhiteSpace(inputStr) || inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid allow friendly charge damage: {allowFriendlyChargeDamageStr}");
+            Debug.Print($"Invalid allow friendly charge damage: {inputStr}");
             Debug.Print("Please provide a valid boolean value (true/false).");
             Debug.Print($"Current value: crpg_charge_damage_allow_friendly {AllowFriendlyChargeDamage}");
             return;
         }
 
-        AllowFriendlyChargeDamage = allowFriendlyChargeDamage;
-        Debug.Print($"Set allow friendly charge damage to {allowFriendlyChargeDamage}");
+        AllowFriendlyChargeDamage = outputBool;
+        Debug.Print($"--Changed: crpg_charge_damage_allow_friendly to: {outputBool}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_to_mount", "Mirror charge damage to mount for friendly fire")]
-    private static void SetMirrorFriendlyChargeDamageMount(string? mirrorFriendlyChargeDamageMountStr)
+    private static void SetMirrorFriendlyChargeDamageMount(string? inputStr)
     {
-        if (string.IsNullOrWhiteSpace(mirrorFriendlyChargeDamageMountStr) || (mirrorFriendlyChargeDamageMountStr == null
-            || !bool.TryParse(mirrorFriendlyChargeDamageMountStr, out bool mirrorFriendlyChargeDamageMount)))
+        if (string.IsNullOrWhiteSpace(inputStr) || (inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool)))
         {
-            Debug.Print($"Invalid mirror friendly charge damage mount: {mirrorFriendlyChargeDamageMountStr}");
+            Debug.Print($"Invalid mirror friendly charge damage mount: {inputStr}");
             Debug.Print("Please provide a valid boolean value (true/false).");
             Debug.Print($"Current value: crpg_charge_damage_mirror_friendly_to_mount {MirrorFriendlyChargeDamageMount}");
             return;
         }
 
-        MirrorFriendlyChargeDamageMount = mirrorFriendlyChargeDamageMount;
-        Debug.Print($"Set mirror friendly charge damage mount to {mirrorFriendlyChargeDamageMount}");
+        MirrorFriendlyChargeDamageMount = outputBool;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_friendly_to_mount to: {outputBool}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_friendly_to_agent", "Mirror charge damage to agent for friendly fire")]
-    private static void SetMirrorFriendlyChargeDamageAgent(string? mirrorFriendlyChargeDamageAgentStr)
+    private static void SetMirrorFriendlyChargeDamageAgent(string? inputStr)
     {
-        if (string.IsNullOrWhiteSpace(mirrorFriendlyChargeDamageAgentStr) || mirrorFriendlyChargeDamageAgentStr == null
-            || !bool.TryParse(mirrorFriendlyChargeDamageAgentStr, out bool mirrorFriendlyChargeDamageAgent))
+        if (string.IsNullOrWhiteSpace(inputStr) || inputStr == null
+            || !bool.TryParse(inputStr, out bool outputBool))
         {
-            Debug.Print($"Invalid mirror friendly charge damage agent: {mirrorFriendlyChargeDamageAgentStr}");
+            Debug.Print($"Invalid mirror friendly charge damage agent: {inputStr}");
             Debug.Print("Please provide a valid boolean value (true/false).");
             Debug.Print($"Current value: crpg_charge_damage_mirror_friendly_to_agent {MirrorFriendlyChargeDamageAgent}");
             return;
         }
 
-        MirrorFriendlyChargeDamageAgent = mirrorFriendlyChargeDamageAgent;
-        Debug.Print($"Set mirror friendly charge damage agent to {mirrorFriendlyChargeDamageAgent}");
+        MirrorFriendlyChargeDamageAgent = outputBool;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_friendly_to_agent to: {outputBool}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_multiplier", "Set the multiplier for charge damage to mount for friendly fire")]
-    private static void SetMirrorMountDamageMultiplier(string? mirrorMountDamageMultiplierStr = "")
+    private static void SetMirrorMountDamageMultiplier(string? inputStr = "")
     {
-        if (string.IsNullOrWhiteSpace(mirrorMountDamageMultiplierStr) || mirrorMountDamageMultiplierStr == null
-            || !int.TryParse(mirrorMountDamageMultiplierStr, out int mirrorMountDamageMultiplier)
-            || mirrorMountDamageMultiplier < 1
-            || mirrorMountDamageMultiplier > 100)
+        if (string.IsNullOrWhiteSpace(inputStr) || inputStr == null
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 1
+            || outputInt > 100)
         {
-            Debug.Print($"Invalid mirror mount damage multiplier: {mirrorMountDamageMultiplierStr}");
+            Debug.Print($"Invalid mirror mount damage multiplier: {inputStr}");
             Debug.Print("Please provide a valid integer value between 1 and 100.");
             Debug.Print($"current value: crpg_charge_damage_mirror_mount_multiplier {MirrorMountDamageMultiplier}");
             return;
         }
 
-        MirrorMountDamageMultiplier = mirrorMountDamageMultiplier;
-        Debug.Print($"Set mirror mount damage multiplier to {mirrorMountDamageMultiplier}");
+        MirrorMountDamageMultiplier = outputInt;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_mount_multiplier to: {outputInt}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_agent_multiplier", "Set the multiplier for charge damage to agent for friendly fire")]
-    private static void SetMirrorAgentDamageMultiplier(string? mirrorAgentDamageMultiplierStr)
+    private static void SetMirrorAgentDamageMultiplier(string? inputStr)
     {
-        if (mirrorAgentDamageMultiplierStr == null || string.IsNullOrWhiteSpace(mirrorAgentDamageMultiplierStr)
-            || !int.TryParse(mirrorAgentDamageMultiplierStr, out int mirrorAgentDamageMultiplier)
-            || mirrorAgentDamageMultiplier < 1
-            || mirrorAgentDamageMultiplier > 100)
+        if (inputStr == null || string.IsNullOrWhiteSpace(inputStr)
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 1
+            || outputInt > 100)
         {
-            Debug.Print($"Invalid mirror agent damage multiplier: {mirrorAgentDamageMultiplierStr}");
+            Debug.Print($"Invalid mirror agent damage multiplier: {inputStr}");
             Debug.Print("Please provide a valid integer value between 1 and 100.");
             Debug.Print($" current value: crpg_charge_damage_mirror_agent_multiplier {MirrorAgentDamageMultiplier}");
             return;
         }
 
-        MirrorAgentDamageMultiplier = mirrorAgentDamageMultiplier;
-        Debug.Print($"Set mirror agent damage multiplier to {mirrorAgentDamageMultiplier}");
+        MirrorAgentDamageMultiplier = outputInt;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_agent_multiplier to: {outputInt}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_max", "Set the maximum damage allowed to the mount for friendly fire")]
-    private static void SetFriendlyMountDamageMaximum(string? friendlyMountDamageMaximumStr)
+    private static void SetFriendlyMountDamageMaximum(string? inputStr)
     {
-        if (friendlyMountDamageMaximumStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMaximumStr)
-            || !int.TryParse(friendlyMountDamageMaximumStr, out int friendlyMountDamageMaximum)
-            || friendlyMountDamageMaximum < 0
-            || friendlyMountDamageMaximum > 1000)
+        if (inputStr == null || string.IsNullOrWhiteSpace(inputStr)
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 0
+            || outputInt > 1000)
         {
-            Debug.Print($"Invalid friendly mount damage maximum: {friendlyMountDamageMaximumStr}");
+            Debug.Print($"Invalid friendly mount damage maximum: {inputStr}");
             Debug.Print("Please provide a valid integer value between 0 and 1000.");
             Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_max {MirrorMountDamageMaximum}");
             return;
         }
 
-        MirrorMountDamageMaximum = friendlyMountDamageMaximum;
-        Debug.Print($"Set friendly mount damage maximum to {friendlyMountDamageMaximum}");
+        MirrorMountDamageMaximum = outputInt;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_mount_damage_max to: {outputInt}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_min", "Set the minimum damage allowed to the mount for friendly fire")]
-    private static void SetFriendlyMountDamageMinimum(string? friendlyMountDamageMinimumStr)
+    private static void SetFriendlyMountDamageMinimum(string? inputStr)
     {
-        if (friendlyMountDamageMinimumStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMinimumStr)
-            || !int.TryParse(friendlyMountDamageMinimumStr, out int friendlyMountDamageMinimum)
-            || friendlyMountDamageMinimum < 0
-            || friendlyMountDamageMinimum > 1000)
+        if (inputStr == null || string.IsNullOrWhiteSpace(inputStr)
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 0
+            || outputInt > 1000)
         {
-            Debug.Print($"Invalid friendly mount damage minimum: {friendlyMountDamageMinimumStr}");
+            Debug.Print($"Invalid friendly mount damage minimum: {inputStr}");
             Debug.Print("Please provide a valid integer value between 0 and 1000.");
             Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_min {MirrorMountDamageMinimum}");
             return;
         }
 
-        MirrorMountDamageMinimum = friendlyMountDamageMinimum;
-        Debug.Print($"Set friendly mount damage minimum to {friendlyMountDamageMinimum}");
+        MirrorMountDamageMinimum = outputInt;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_mount_damage_min to: {outputInt}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_mirror_mount_damage_max_percentage", "Set the maximum damage allowed to the mount for friendly fire as a percentage of the mount's health")]
-    private static void SetFriendlyMountDamageMaximumPercentage(string? friendlyMountDamageMaximumPercentageStr)
+    private static void SetFriendlyMountDamageMaximumPercentage(string? inputStr)
     {
-        if (friendlyMountDamageMaximumPercentageStr == null || string.IsNullOrWhiteSpace(friendlyMountDamageMaximumPercentageStr)
-            || !int.TryParse(friendlyMountDamageMaximumPercentageStr, out int friendlyMountDamageMaximumPercentage)
-            || friendlyMountDamageMaximumPercentage < 0
-            || friendlyMountDamageMaximumPercentage > 100)
+        if (inputStr == null || string.IsNullOrWhiteSpace(inputStr)
+            || !int.TryParse(inputStr, out int outputInt)
+            || outputInt < 0
+            || outputInt > 100)
         {
-            Debug.Print($"Invalid friendly mount damage maximum percentage: {friendlyMountDamageMaximumPercentageStr}");
+            Debug.Print($"Invalid friendly mount damage maximum percentage: {inputStr}");
             Debug.Print("Please provide a valid integer value between 0 and 100.");
             Debug.Print($"Current value: crpg_charge_damage_mirror_mount_damage_max_percentage {MirrorMountDamageMaximumPercentage}");
             return;
         }
 
-        MirrorMountDamageMaximumPercentage = friendlyMountDamageMaximumPercentage;
-        Debug.Print($"Set friendly mount damage maximum percentage to {friendlyMountDamageMaximumPercentage}");
+        MirrorMountDamageMaximumPercentage = outputInt;
+        Debug.Print($"--Changed: crpg_charge_damage_mirror_mount_damage_max_percentage to: {outputInt}");
     }
 
     [UsedImplicitly]
     [ConsoleCommandMethod("crpg_charge_damage_min_velocity_for_friendly_damage", "Set the minimum charge velocity for friendly damage")]
-    private static void SetMinimumChargeVelocityForFriendlyDamage(string? minimumChargeVelocityForFriendlyDamageStr)
+    private static void SetMinimumChargeVelocityForFriendlyDamage(string? inputStr)
     {
-        if (minimumChargeVelocityForFriendlyDamageStr == null || string.IsNullOrWhiteSpace(minimumChargeVelocityForFriendlyDamageStr)
-            || !float.TryParse(minimumChargeVelocityForFriendlyDamageStr, out float minimumChargeVelocityForFriendlyDamage)
-            || minimumChargeVelocityForFriendlyDamage < 0.0f)
+        if (inputStr == null || string.IsNullOrWhiteSpace(inputStr)
+            || !float.TryParse(inputStr, out float outputFloat)
+            || outputFloat < 0.0f)
         {
-            Debug.Print($"Invalid minimum charge velocity for friendly damage: {minimumChargeVelocityForFriendlyDamageStr}");
+            Debug.Print($"Invalid minimum charge velocity for friendly damage: {inputStr}");
             Debug.Print("Please provide a valid float value greater than or equal to 0.0.");
             Debug.Print($"Current value: crpg_charge_damage_min_velocity_for_friendly_damage {MinimumChargeVelocityForFriendlyDamage}");
             return;
         }
 
-        MinimumChargeVelocityForFriendlyDamage = minimumChargeVelocityForFriendlyDamage;
-        Debug.Print($"Set minimum charge velocity for friendly damage to {minimumChargeVelocityForFriendlyDamage}");
+        MinimumChargeVelocityForFriendlyDamage = outputFloat;
+        Debug.Print($"--Changed: crpg_charge_damage_min_velocity_for_friendly_damage to: {outputFloat}");
     }
 
     [UsedImplicitly]

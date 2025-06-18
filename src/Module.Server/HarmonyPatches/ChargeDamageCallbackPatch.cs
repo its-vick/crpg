@@ -15,13 +15,13 @@ namespace Crpg.Module.HarmonyPatches;
     crpg_charge_damage_disable_all False
     crpg_charge_damage_allow_enemies True
     crpg_charge_damage_allow_friendly True
-    crpg_charge_damage_mirror_friendly_to_mount True
+    crpg_charge_damage_mirror_friendly_to_mount False
     crpg_charge_damage_mirror_friendly_to_agent False
     crpg_charge_damage_mirror_mount_multiplier 5
     crpg_charge_damage_mirror_agent_multiplier 1
-    crpg_charge_damage_mirror_mount_damage_max 100
+    crpg_charge_damage_mirror_mount_damage_max 50
     crpg_charge_damage_mirror_mount_damage_min 0
-    crpg_charge_damage_mirror_mount_damage_max_percentage 50
+    crpg_charge_damage_mirror_mount_damage_max_percentage 25
     crpg_charge_damage_min_velocity_for_friendly_damage 0.0
 
     crpg_charge_damage_settings // list all charge damage settings
@@ -29,13 +29,13 @@ namespace Crpg.Module.HarmonyPatches;
     CrpgServerConfiguration.DisableAllChargeDamage = false // Disable all charge damage ***overrides other flags***
     CrpgServerConfiguration.AllowChargeEnemies = true // Allow charge damage to enemies
     CrpgServerConfiguration.AllowFriendlyChargeDamage = true // Allow charge damage to friends
-    CrpgServerConfiguration.MirrorFriendlyChargeDamageMount = true // Mirror charge damage from friendlies to mount
+    CrpgServerConfiguration.MirrorFriendlyChargeDamageMount = false // Mirror charge damage from friendlies to mount
     CrpgServerConfiguration.MirrorFriendlyChargeDamageAgent = false // Mirror charge damage from friendlies to rider
     CrpgServerConfiguration.MirrorMountDamageMultiplier = 5 // Multiplier for charge damage to mount
     CrpgServerConfiguration.MirrorAgentDamageMultiplier = 1 // Multiplier for charge damage to rider
     CrpgServerConfiguration.MirrorMountDamageMaximum = 100 // Maximum damage to the mount <int 0-1000>
     CrpgServerConfiguration.MirrorMountDamageMinimum = 0 // Minimum damage to the mount <int 0-1000>
-    CrpgServerConfiguration.MirrorMountDamageMaximumPercentage = 50 // Maximum percentage of horse max health that can be damaged in blow <int 0-100>
+    CrpgServerConfiguration.MirrorMountDamageMaximumPercentage = 25 // Maximum percentage of horse max health that can be damaged in blow <int 0-100>
     CrpgServerConfiguration.MinimumChargeVelocityForFriendlyDamage = 0.0 // Minimum speed for charge damage to affect teammates <float>
 
 */
@@ -149,7 +149,7 @@ public static class ChargeDamageCallbackPatch
         int mountDamage = (int)(collisionData.InflictedDamage * CrpgServerConfiguration.MirrorMountDamageMultiplier);
         float horseMaxHealth = attacker.HealthLimit;
 
-        // Minium damage to the mount can be set here
+        // Minimum damage to the mount can be set here
         if (mountDamage < CrpgServerConfiguration.MirrorMountDamageMinimum)
         {
           mountDamage = CrpgServerConfiguration.MirrorMountDamageMinimum;
@@ -162,9 +162,11 @@ public static class ChargeDamageCallbackPatch
         }
 
         // Maximum percentage of horse max health that can be damaged
-        if (mountDamage > horseMaxHealth * CrpgServerConfiguration.MirrorMountDamageMaximumPercentage)
+        int maxPercent = CrpgServerConfiguration.MirrorMountDamageMaximumPercentage;
+        float maxFraction = maxPercent / 100f;
+        if (mountDamage > horseMaxHealth * maxFraction)
         {
-          mountDamage = (int)(horseMaxHealth * CrpgServerConfiguration.MirrorMountDamageMaximumPercentage);
+          mountDamage = (int)(horseMaxHealth * maxFraction);
         }
 
         duplicateBlow.InflictedDamage = 0; // No damage to the victim in duplicate blow, only here to mirror the damage to the mount
